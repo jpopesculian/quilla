@@ -1,0 +1,83 @@
+use alloc::vec;
+use ndarray::array;
+use num_traits::Num;
+
+use super::unitary_gate::UnitaryGate;
+use crate::complex::{c32, c64};
+use crate::state_vector::{StateVector, StateVectorOperation};
+
+#[derive(Clone, Copy)]
+pub struct HadamardGate {
+    target: usize,
+}
+
+impl HadamardGate {
+    pub fn new(target: usize) -> Self {
+        Self { target }
+    }
+}
+
+impl<T> StateVectorOperation<T> for HadamardGate
+where
+    T: Num + Copy,
+    UnitaryGate<T, 1>: From<HadamardGate>,
+{
+    fn apply<R>(&self, state: &mut StateVector<T>, rng: &mut R)
+    where
+        R: rand::Rng + ?Sized,
+    {
+        UnitaryGate::<T, 1>::from(*self).apply(state, rng)
+    }
+}
+
+impl From<HadamardGate> for UnitaryGate<f32, 1> {
+    fn from(gate: HadamardGate) -> Self {
+        let frac_1_sqrt_2 = core::f32::consts::FRAC_1_SQRT_2;
+        UnitaryGate::new(
+            array![
+                [c32(frac_1_sqrt_2, 0.), c32(frac_1_sqrt_2, 0.)],
+                [c32(frac_1_sqrt_2, 0.), c32(-frac_1_sqrt_2, 0.)],
+            ],
+            [gate.target],
+        )
+    }
+}
+
+impl From<HadamardGate> for UnitaryGate<f64, 1> {
+    fn from(gate: HadamardGate) -> Self {
+        let frac_1_sqrt_2 = core::f64::consts::FRAC_1_SQRT_2;
+        UnitaryGate::new(
+            array![
+                [c64(frac_1_sqrt_2, 0.), c64(frac_1_sqrt_2, 0.)],
+                [c64(frac_1_sqrt_2, 0.), c64(-frac_1_sqrt_2, 0.)],
+            ],
+            [gate.target],
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::complex::{assert_complex_close, c64};
+    use crate::state_vector::StateVector;
+
+    fn basis_state(qubits: usize, index: usize) -> StateVector<f64> {
+        let mut state = StateVector::<f64>::new(qubits, 0);
+        state.qstate[index] = c64(1.0, 0.0);
+        state
+    }
+
+    #[test]
+    fn hadamard_on_zero_creates_equal_superposition() {
+        let mut state = basis_state(1, 0);
+        let gate = HadamardGate::new(0);
+        let mut rng = crate::rand::rng();
+
+        gate.apply(&mut state, &mut rng);
+
+        let s = core::f64::consts::FRAC_1_SQRT_2;
+        assert_complex_close(state.qstate[0], c64(s, 0.0));
+        assert_complex_close(state.qstate[1], c64(s, 0.0));
+    }
+}
