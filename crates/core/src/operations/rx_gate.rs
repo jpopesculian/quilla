@@ -23,11 +23,11 @@ where
     T: Num + Copy,
     UnitaryGate<T, 1>: From<RXGate<T>>,
 {
-    fn apply<R>(&self, state: &mut StateVector<T>, rng: &mut R)
+    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
     where
         R: rand::Rng + ?Sized,
     {
-        UnitaryGate::<T, 1>::from(*self).apply(state, rng)
+        UnitaryGate::<T, 1>::from(*self).apply_to(state, rng)
     }
 }
 
@@ -70,7 +70,7 @@ mod tests {
         let gate = RXGate::new(core::f64::consts::PI, 0);
         let mut rng = crate::rand::rng();
 
-        gate.apply(&mut state, &mut rng);
+        gate.apply_to(&mut state, &mut rng);
 
         assert_complex_close(state.qstate[0], c64(0.0, 0.0));
         assert_complex_close(state.qstate[1], c64(0.0, -1.0));

@@ -24,7 +24,7 @@ impl<T> StateVectorOperation<T> for CYGate
 where
     T: Copy + Neg<Output = T>,
 {
-    fn apply<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
+    fn apply_to<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
     where
         R: rand::Rng + ?Sized,
     {
@@ -92,7 +92,7 @@ mod tests {
         let gate = CYGate::new(1, 0);
         let mut rng = crate::rand::rng();
 
-        gate.apply(&mut state, &mut rng);
+        gate.apply_to(&mut state, &mut rng);
 
         assert_complex_close(state.qstate[2], c64(0.0, 0.0));
         assert_complex_close(state.qstate[3], c64(0.0, 1.0));
@@ -104,9 +104,33 @@ mod tests {
         let gate = CYGate::new(1, 0);
         let mut rng = crate::rand::rng();
 
-        gate.apply(&mut state, &mut rng);
+        gate.apply_to(&mut state, &mut rng);
 
         assert_complex_close(state.qstate[1], c64(1.0, 0.0));
         assert_complex_close(state.qstate[0], c64(0.0, 0.0));
+    }
+
+    #[test]
+    fn cy_gate_matches_unitary_apply() {
+        let gate = CYGate::new(1, 0);
+
+        let mut direct_state = StateVector::<f64>::new(2, 0);
+        direct_state.qstate[0] = c64(0.1, 0.2);
+        direct_state.qstate[1] = c64(-0.3, 0.4);
+        direct_state.qstate[2] = c64(0.5, -0.6);
+        direct_state.qstate[3] = c64(-0.7, -0.8);
+
+        let mut unitary_state = StateVector::<f64>::new(2, 0);
+        unitary_state.qstate = direct_state.qstate.clone();
+
+        let mut rng = crate::rand::rng();
+        gate.apply_to(&mut direct_state, &mut rng);
+
+        let mut rng = crate::rand::rng();
+        UnitaryGate::<f64, 2>::from(gate).apply_to(&mut unitary_state, &mut rng);
+
+        for i in 0..direct_state.qstate.len() {
+            assert_complex_close(direct_state.qstate[i], unitary_state.qstate[i]);
+        }
     }
 }

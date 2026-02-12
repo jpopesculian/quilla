@@ -24,7 +24,7 @@ where
     T: Float,
     StandardUniform: Distribution<T>,
 {
-    fn apply<R>(&self, state: &mut StateVector<T>, rng: &mut R)
+    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
     where
         R: rand::Rng + ?Sized,
     {
@@ -76,7 +76,7 @@ mod tests {
         let gate = Measure::new(0, 0);
         let mut rng = crate::rand::rng();
 
-        gate.apply(&mut state, &mut rng);
+        gate.apply_to(&mut state, &mut rng);
 
         assert!(!state.cstate[0]);
         assert_complex_close(state.qstate[0], c64(1.0, 0.0));
@@ -90,7 +90,7 @@ mod tests {
         let gate = Measure::new(0, 0);
         let mut rng = crate::rand::rng();
 
-        gate.apply(&mut state, &mut rng);
+        gate.apply_to(&mut state, &mut rng);
 
         assert!(state.cstate[0]);
         assert_complex_close(state.qstate[0], c64(0.0, 0.0));

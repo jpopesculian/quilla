@@ -22,11 +22,11 @@ where
     T: Num + Copy,
     UnitaryGate<T, 1>: From<HadamardGate>,
 {
-    fn apply<R>(&self, state: &mut StateVector<T>, rng: &mut R)
+    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
     where
         R: rand::Rng + ?Sized,
     {
-        UnitaryGate::<T, 1>::from(*self).apply(state, rng)
+        UnitaryGate::<T, 1>::from(*self).apply_to(state, rng)
     }
 }
 
@@ -74,7 +74,7 @@ mod tests {
         let gate = HadamardGate::new(0);
         let mut rng = crate::rand::rng();
 
-        gate.apply(&mut state, &mut rng);
+        gate.apply_to(&mut state, &mut rng);
 
         let s = core::f64::consts::FRAC_1_SQRT_2;
         assert_complex_close(state.qstate[0], c64(s, 0.0));

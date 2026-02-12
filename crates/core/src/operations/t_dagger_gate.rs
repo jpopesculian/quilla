@@ -23,7 +23,7 @@ impl<T> StateVectorOperation<T> for TDaggerGate
 where
     T: Float + Copy,
 {
-    fn apply<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
+    fn apply_to<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
     where
         R: rand::Rng + ?Sized,
     {
@@ -79,10 +79,32 @@ mod tests {
         let gate = TDaggerGate::new(0);
         let mut rng = crate::rand::rng();
 
-        gate.apply(&mut state, &mut rng);
+        gate.apply_to(&mut state, &mut rng);
 
         let phase = core::f64::consts::FRAC_1_SQRT_2;
         assert_complex_close(state.qstate[0], c64(0.0, 0.0));
         assert_complex_close(state.qstate[1], c64(phase, -phase));
+    }
+
+    #[test]
+    fn t_dagger_gate_matches_unitary_apply() {
+        let gate = TDaggerGate::new(0);
+
+        let mut direct_state = StateVector::<f64>::new(1, 0);
+        direct_state.qstate[0] = c64(0.3, -0.1);
+        direct_state.qstate[1] = c64(-0.4, 0.2);
+
+        let mut unitary_state = StateVector::<f64>::new(1, 0);
+        unitary_state.qstate = direct_state.qstate.clone();
+
+        let mut rng = crate::rand::rng();
+        gate.apply_to(&mut direct_state, &mut rng);
+
+        let mut rng = crate::rand::rng();
+        UnitaryGate::<f64, 1>::from(gate).apply_to(&mut unitary_state, &mut rng);
+
+        for i in 0..direct_state.qstate.len() {
+            assert_complex_close(direct_state.qstate[i], unitary_state.qstate[i]);
+        }
     }
 }
