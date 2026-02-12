@@ -18,15 +18,31 @@ impl<T> RYGate<T> {
     }
 }
 
-impl<T> StateVectorOperation<T> for RYGate<T>
+impl From<RYGate<f32>> for RYGate<f64> {
+    fn from(gate: RYGate<f32>) -> Self {
+        Self {
+            theta: gate.theta as f64,
+            target: gate.target,
+        }
+    }
+}
+
+impl From<RYGate<f64>> for RYGate<f32> {
+    fn from(gate: RYGate<f64>) -> Self {
+        Self {
+            theta: gate.theta as f32,
+            target: gate.target,
+        }
+    }
+}
+
+impl<T, U> StateVectorOperation<T> for RYGate<U>
 where
     T: Num + Copy,
-    UnitaryGate<T, 1>: From<RYGate<T>>,
+    U: Copy,
+    UnitaryGate<T, 1>: From<RYGate<U>>,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, rng: &mut crate::rand::DynRng) {
         UnitaryGate::<T, 1>::from(*self).apply_to(state, rng)
     }
 }
@@ -44,6 +60,12 @@ impl From<RYGate<f32>> for UnitaryGate<f32, 1> {
     }
 }
 
+impl From<RYGate<f64>> for UnitaryGate<f32, 1> {
+    fn from(gate: RYGate<f64>) -> Self {
+        RYGate::<f32>::from(gate).into()
+    }
+}
+
 impl From<RYGate<f64>> for UnitaryGate<f64, 1> {
     fn from(gate: RYGate<f64>) -> Self {
         let half_theta = gate.theta / 2.0;
@@ -54,6 +76,12 @@ impl From<RYGate<f64>> for UnitaryGate<f64, 1> {
             array![[c64(c, 0.), c64(-s, 0.)], [c64(s, 0.), c64(c, 0.)]],
             [gate.target],
         )
+    }
+}
+
+impl From<RYGate<f32>> for UnitaryGate<f64, 1> {
+    fn from(gate: RYGate<f32>) -> Self {
+        RYGate::<f64>::from(gate).into()
     }
 }
 

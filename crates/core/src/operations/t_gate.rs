@@ -23,10 +23,7 @@ impl<T> StateVectorOperation<T> for TGate
 where
     T: Float + Copy,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, _rng: &mut crate::rand::DynRng) {
         let bit = 1usize << self.target;
         let one = T::one();
         let inv_sqrt_2 = one / (one + one).sqrt();
@@ -69,6 +66,7 @@ mod tests {
     #[test]
     fn t_gate_maps_one_to_pi_over_4_phase() {
         let mut state = StateVector::<f64>::new(1, 0);
+        state.qstate[0] = c64(0.0, 0.0);
         state.qstate[1] = c64(1.0, 0.0);
         let gate = TGate::new(0);
         let mut rng = crate::rand::rng();

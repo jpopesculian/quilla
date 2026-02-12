@@ -24,10 +24,7 @@ impl<T> StateVectorOperation<T> for CYGate
 where
     T: Copy + Neg<Output = T>,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, _rng: &mut crate::rand::DynRng) {
         let control_mask = 1usize << self.control;
         let target_mask = 1usize << self.target;
 
@@ -82,6 +79,7 @@ mod tests {
 
     fn basis_state(qubits: usize, index: usize) -> StateVector<f64> {
         let mut state = StateVector::<f64>::new(qubits, 0);
+        state.qstate[0] = c64(0.0, 0.0);
         state.qstate[index] = c64(1.0, 0.0);
         state
     }

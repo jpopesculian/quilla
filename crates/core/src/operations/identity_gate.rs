@@ -17,11 +17,7 @@ impl IdentityGate {
 }
 
 impl<T> StateVectorOperation<T> for IdentityGate {
-    fn apply_to<R>(&self, _state: &mut StateVector<T>, _rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
-    }
+    fn apply_to(&self, _state: &mut StateVector<T>, _rng: &mut crate::rand::DynRng) {}
 }
 
 impl From<IdentityGate> for UnitaryGate<f32, 1> {

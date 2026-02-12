@@ -1,26 +1,36 @@
+use alloc::{boxed::Box, collections::BTreeMap};
+
 use bitvec::{bitvec, vec::BitVec};
 use ndarray::Array1;
 use num_complex::Complex;
 use num_traits::Num;
 
+use crate::circuit::Circuit;
+use crate::rand::DynRng;
+
 pub trait StateVectorOperation<T> {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
-    where
-        R: rand::Rng + ?Sized;
+    fn apply_to(&self, state: &mut StateVector<T>, rng: &mut DynRng);
 }
 
 impl<T, U> StateVectorOperation<U> for &T
 where
     T: StateVectorOperation<U>,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<U>, rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<U>, rng: &mut DynRng) {
         T::apply_to(self, state, rng);
     }
 }
 
+impl<T, U> StateVectorOperation<U> for Box<T>
+where
+    T: StateVectorOperation<U> + ?Sized,
+{
+    fn apply_to(&self, state: &mut StateVector<U>, rng: &mut DynRng) {
+        T::apply_to(self, state, rng);
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct StateVector<T> {
     pub(crate) qbits: usize,
     pub(crate) qstate: Array1<Complex<T>>,
@@ -33,29 +43,164 @@ impl<T> StateVector<T> {
     where
         T: Clone + Num,
     {
+        let mut qstate = Array1::zeros(1 << qbits);
+        if qbits > 0 {
+            qstate[0] = Complex::new(T::one(), T::zero());
+        }
         Self {
             qbits,
-            qstate: Array1::zeros(1 << qbits),
+            qstate,
             cbits,
             cstate: bitvec![0; cbits],
         }
     }
 
-    pub fn apply<O, R>(&mut self, op: O, rng: &mut R)
+    pub fn apply<O>(&mut self, op: O, rng: &mut DynRng)
     where
         O: StateVectorOperation<T>,
-        R: rand::Rng + ?Sized,
     {
         op.apply_to(self, rng);
     }
 
-    pub fn apply_all<O, R>(&mut self, ops: impl IntoIterator<Item = O>, rng: &mut R)
+    pub fn apply_all<O>(&mut self, ops: impl IntoIterator<Item = O>, rng: &mut DynRng)
     where
         O: StateVectorOperation<T>,
-        R: rand::Rng + ?Sized,
     {
         for op in ops {
             op.apply_to(self, rng);
         }
+    }
+}
+
+impl<O> Circuit<O> {
+    pub fn run_once_with_rng<T>(&self, rng: &mut DynRng) -> BitVec
+    where
+        O: StateVectorOperation<T>,
+        T: Clone + Num,
+    {
+        let mut state = StateVector::<T>::new(self.qbits(), self.cbits());
+        state.apply_all(self.operations(), rng);
+        state.cstate
+    }
+
+    pub fn run_once<T>(&self) -> BitVec
+    where
+        O: StateVectorOperation<T>,
+        T: Clone + Num,
+    {
+        let mut rng = crate::rand::rng();
+        self.run_once_with_rng(&mut rng)
+    }
+
+    pub fn run_with_rng<T>(&self, shots: usize, rng: &mut DynRng) -> BTreeMap<BitVec, usize>
+    where
+        O: StateVectorOperation<T>,
+        T: Clone + Num,
+    {
+        let mut results = BTreeMap::new();
+        for _ in 0..shots {
+            let result = self.run_once_with_rng(rng);
+            let count = results.entry(result).or_insert(0);
+            *count += 1
+        }
+        results
+    }
+
+    pub fn run<T>(&self, shots: usize) -> BTreeMap<BitVec, usize>
+    where
+        O: StateVectorOperation<T>,
+        T: Clone + Num,
+    {
+        let mut rng = crate::rand::rng();
+        self.run_with_rng(shots, &mut rng)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bitvec::bitvec;
+    use bitvec::prelude::Lsb0;
+
+    #[derive(Clone, Copy)]
+    struct SetCBitOp {
+        cbit: usize,
+        value: bool,
+    }
+
+    impl SetCBitOp {
+        fn new(cbit: usize, value: bool) -> Self {
+            Self { cbit, value }
+        }
+    }
+
+    impl<T> StateVectorOperation<T> for SetCBitOp {
+        fn apply_to(&self, state: &mut StateVector<T>, _rng: &mut DynRng) {
+            state.cstate.set(self.cbit, self.value);
+        }
+    }
+
+    #[test]
+    fn run_once_with_rng_applies_operations_in_order() {
+        let mut circuit = Circuit::new(1, 1);
+        circuit.op(SetCBitOp::new(0, false));
+        circuit.op(SetCBitOp::new(0, true));
+
+        let mut rng = crate::rand::rng();
+        let result = circuit.run_once_with_rng::<f64>(&mut rng);
+
+        assert_eq!(result, bitvec![1]);
+    }
+
+    #[test]
+    fn run_once_returns_classical_state() {
+        let mut circuit = Circuit::new(1, 1);
+        circuit.op(SetCBitOp::new(0, true));
+
+        let result = circuit.run_once::<f64>();
+
+        assert_eq!(result, bitvec![1]);
+    }
+
+    #[test]
+    fn run_with_rng_accumulates_shot_counts() {
+        let mut circuit = Circuit::new(1, 1);
+        circuit.op(SetCBitOp::new(0, true));
+
+        let mut rng = crate::rand::rng();
+        let results = circuit.run_with_rng::<f64>(5, &mut rng);
+
+        let expected = bitvec![1];
+        assert_eq!(results.len(), 1);
+        assert_eq!(results.get(&expected), Some(&5));
+    }
+
+    #[test]
+    fn run_returns_empty_map_for_zero_shots() {
+        let mut circuit = Circuit::new(1, 1);
+        circuit.op(SetCBitOp::new(0, true));
+
+        let results = circuit.run::<f64>(0);
+
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn bell_state_has_only_01_and_10_outcomes() {
+        let mut circuit = crate::circuit::DynCircuit::new(2, 2);
+        circuit.x(1).h(0).cx(0, 1).meas(0, 0).meas(1, 1);
+
+        let results = circuit.run::<f64>(1000);
+
+        let b00 = bitvec![0, 0];
+        let b01 = bitvec![1, 0];
+        let b10 = bitvec![0, 1];
+        let b11 = bitvec![1, 1];
+
+        assert_eq!(results.values().sum::<usize>(), 1000);
+        assert_eq!(results.get(&b00).copied().unwrap_or(0), 0);
+        assert_eq!(results.get(&b11).copied().unwrap_or(0), 0);
+        assert!(results.get(&b01).copied().unwrap_or(0) > 0);
+        assert!(results.get(&b10).copied().unwrap_or(0) > 0);
     }
 }

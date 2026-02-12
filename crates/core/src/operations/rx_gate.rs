@@ -18,15 +18,31 @@ impl<T> RXGate<T> {
     }
 }
 
-impl<T> StateVectorOperation<T> for RXGate<T>
+impl From<RXGate<f32>> for RXGate<f64> {
+    fn from(gate: RXGate<f32>) -> Self {
+        Self {
+            theta: gate.theta as f64,
+            target: gate.target,
+        }
+    }
+}
+
+impl From<RXGate<f64>> for RXGate<f32> {
+    fn from(gate: RXGate<f64>) -> Self {
+        Self {
+            theta: gate.theta as f32,
+            target: gate.target,
+        }
+    }
+}
+
+impl<T, U> StateVectorOperation<T> for RXGate<U>
 where
     T: Num + Copy,
-    UnitaryGate<T, 1>: From<RXGate<T>>,
+    U: Copy,
+    UnitaryGate<T, 1>: From<RXGate<U>>,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, rng: &mut crate::rand::DynRng) {
         UnitaryGate::<T, 1>::from(*self).apply_to(state, rng)
     }
 }
@@ -44,6 +60,12 @@ impl From<RXGate<f32>> for UnitaryGate<f32, 1> {
     }
 }
 
+impl From<RXGate<f64>> for UnitaryGate<f32, 1> {
+    fn from(gate: RXGate<f64>) -> Self {
+        RXGate::<f32>::from(gate).into()
+    }
+}
+
 impl From<RXGate<f64>> for UnitaryGate<f64, 1> {
     fn from(gate: RXGate<f64>) -> Self {
         let half_theta = gate.theta / 2.0;
@@ -54,6 +76,12 @@ impl From<RXGate<f64>> for UnitaryGate<f64, 1> {
             array![[c64(c, 0.), c64(0., -s)], [c64(0., -s), c64(c, 0.)]],
             [gate.target],
         )
+    }
+}
+
+impl From<RXGate<f32>> for UnitaryGate<f64, 1> {
+    fn from(gate: RXGate<f32>) -> Self {
+        RXGate::<f64>::from(gate).into()
     }
 }
 

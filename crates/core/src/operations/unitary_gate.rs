@@ -19,10 +19,7 @@ impl<T> StateVectorOperation<T> for UnitaryGate<T, 1>
 where
     T: Num + Copy,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, _rng: &mut crate::rand::DynRng) {
         let target = self.targets[0];
         let bit = 1 << target;
 
@@ -53,10 +50,7 @@ impl<T> StateVectorOperation<T> for UnitaryGate<T, 2>
 where
     T: Num + Copy,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, _rng: &mut crate::rand::DynRng) {
         let target0 = self.targets[0];
         let target1 = self.targets[1];
         let bit0 = 1 << target0;

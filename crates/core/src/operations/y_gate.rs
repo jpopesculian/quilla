@@ -23,10 +23,7 @@ impl<T> StateVectorOperation<T> for YGate
 where
     T: Copy + Neg<Output = T>,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, _rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, _rng: &mut crate::rand::DynRng) {
         let bit = 1usize << self.target;
 
         for i0 in 0..state.qstate.len() {

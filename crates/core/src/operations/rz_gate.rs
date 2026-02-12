@@ -18,15 +18,31 @@ impl<T> RZGate<T> {
     }
 }
 
-impl<T> StateVectorOperation<T> for RZGate<T>
+impl From<RZGate<f32>> for RZGate<f64> {
+    fn from(gate: RZGate<f32>) -> Self {
+        Self {
+            theta: gate.theta as f64,
+            target: gate.target,
+        }
+    }
+}
+
+impl From<RZGate<f64>> for RZGate<f32> {
+    fn from(gate: RZGate<f64>) -> Self {
+        Self {
+            theta: gate.theta as f32,
+            target: gate.target,
+        }
+    }
+}
+
+impl<T, U> StateVectorOperation<T> for RZGate<U>
 where
     T: Num + Copy,
-    UnitaryGate<T, 1>: From<RZGate<T>>,
+    U: Copy,
+    UnitaryGate<T, 1>: From<RZGate<U>>,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, rng: &mut crate::rand::DynRng) {
         UnitaryGate::<T, 1>::from(*self).apply_to(state, rng)
     }
 }
@@ -44,6 +60,12 @@ impl From<RZGate<f32>> for UnitaryGate<f32, 1> {
     }
 }
 
+impl From<RZGate<f64>> for UnitaryGate<f32, 1> {
+    fn from(gate: RZGate<f64>) -> Self {
+        RZGate::<f32>::from(gate).into()
+    }
+}
+
 impl From<RZGate<f64>> for UnitaryGate<f64, 1> {
     fn from(gate: RZGate<f64>) -> Self {
         let half_theta = gate.theta / 2.0;
@@ -57,6 +79,12 @@ impl From<RZGate<f64>> for UnitaryGate<f64, 1> {
     }
 }
 
+impl From<RZGate<f32>> for UnitaryGate<f64, 1> {
+    fn from(gate: RZGate<f32>) -> Self {
+        RZGate::<f64>::from(gate).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,6 +94,7 @@ mod tests {
     #[test]
     fn rz_pi_maps_one_to_i_one() {
         let mut state = StateVector::<f64>::new(1, 0);
+        state.qstate[0] = c64(0.0, 0.0);
         state.qstate[1] = c64(1.0, 0.0);
         let gate = RZGate::new(core::f64::consts::PI, 0);
         let mut rng = crate::rand::rng();

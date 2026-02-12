@@ -22,10 +22,7 @@ where
     T: Num + Copy,
     UnitaryGate<T, 1>: From<HadamardGate>,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, rng: &mut crate::rand::DynRng) {
         UnitaryGate::<T, 1>::from(*self).apply_to(state, rng)
     }
 }
@@ -64,6 +61,7 @@ mod tests {
 
     fn basis_state(qubits: usize, index: usize) -> StateVector<f64> {
         let mut state = StateVector::<f64>::new(qubits, 0);
+        state.qstate[0] = c64(0.0, 0.0);
         state.qstate[index] = c64(1.0, 0.0);
         state
     }

@@ -24,10 +24,7 @@ where
     T: Float,
     StandardUniform: Distribution<T>,
 {
-    fn apply_to<R>(&self, state: &mut StateVector<T>, rng: &mut R)
-    where
-        R: rand::Rng + ?Sized,
-    {
+    fn apply_to(&self, state: &mut StateVector<T>, rng: &mut crate::rand::DynRng) {
         assert!(self.qbit < state.qbits, "qbit {} out of range", self.qbit);
         assert!(self.cbit < state.cbits, "cbit {} out of range", self.cbit);
 
@@ -86,6 +83,7 @@ mod tests {
     #[test]
     fn measure_one_sets_classical_one_and_keeps_one_state() {
         let mut state = StateVector::<f64>::new(1, 1);
+        state.qstate[0] = c64(0.0, 0.0);
         state.qstate[1] = c64(1.0, 0.0);
         let gate = Measure::new(0, 0);
         let mut rng = crate::rand::rng();
