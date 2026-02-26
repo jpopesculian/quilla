@@ -206,37 +206,35 @@ impl fmt::Display for CircuitDrawing {
                 (1..ncols).any(|c| matches!(self.elements[(r, c)], Element::Gate(_)));
 
             // Top sub-line (only for rows with gates)
-            if row_has_gate {
-                if let Some(last) = (1..ncols).rfind(|&c| has_top(r, c)) {
-                    for _ in 0..label_pad {
-                        f.write_str(" ")?;
-                    }
-                    for c in 1..=last {
-                        match self.elements[(r, c)] {
-                            Element::Gate(_) => {
-                                let vert = r > 0
-                                    && matches!(
-                                        self.elements[(r - 1, c)],
-                                        Element::ControlTop(_) | Element::CrossedWire
-                                    );
-                                if vert {
-                                    f.write_str("╭─┴─╮")?;
-                                } else {
-                                    f.write_str("╭───╮")?;
-                                }
-                            }
-                            Element::CrossedWire | Element::ControlBottom(_) => {
-                                if c == last {
-                                    f.write_str("  │")?;
-                                } else {
-                                    f.write_str("  │  ")?;
-                                }
-                            }
-                            _ => f.write_str("     ")?,
-                        }
-                    }
-                    f.write_str("\n")?;
+            if row_has_gate && let Some(last) = (1..ncols).rfind(|&c| has_top(r, c)) {
+                for _ in 0..label_pad {
+                    f.write_str(" ")?;
                 }
+                for c in 1..=last {
+                    match self.elements[(r, c)] {
+                        Element::Gate(_) => {
+                            let vert = r > 0
+                                && matches!(
+                                    self.elements[(r - 1, c)],
+                                    Element::ControlTop(_) | Element::CrossedWire
+                                );
+                            if vert {
+                                f.write_str("╭─┴─╮")?;
+                            } else {
+                                f.write_str("╭───╮")?;
+                            }
+                        }
+                        Element::CrossedWire | Element::ControlBottom(_) => {
+                            if c == last {
+                                f.write_str("  │")?;
+                            } else {
+                                f.write_str("  │  ")?;
+                            }
+                        }
+                        _ => f.write_str("     ")?,
+                    }
+                }
+                f.write_str("\n")?;
             }
 
             // Middle sub-line
@@ -266,37 +264,35 @@ impl fmt::Display for CircuitDrawing {
             f.write_str("\n")?;
 
             // Bottom sub-line (only for rows with gates)
-            if row_has_gate {
-                if let Some(last) = (1..ncols).rfind(|&c| has_bot(r, c)) {
-                    for _ in 0..label_pad {
-                        f.write_str(" ")?;
-                    }
-                    for c in 1..=last {
-                        match self.elements[(r, c)] {
-                            Element::Gate(_) => {
-                                let vert = r + 1 < rows
-                                    && matches!(
-                                        self.elements[(r + 1, c)],
-                                        Element::ControlBottom(_) | Element::CrossedWire
-                                    );
-                                if vert {
-                                    f.write_str("╰─┬─╯")?;
-                                } else {
-                                    f.write_str("╰───╯")?;
-                                }
-                            }
-                            Element::CrossedWire | Element::ControlTop(_) => {
-                                if c == last {
-                                    f.write_str("  │")?;
-                                } else {
-                                    f.write_str("  │  ")?;
-                                }
-                            }
-                            _ => f.write_str("     ")?,
-                        }
-                    }
-                    f.write_str("\n")?;
+            if row_has_gate && let Some(last) = (1..ncols).rfind(|&c| has_bot(r, c)) {
+                for _ in 0..label_pad {
+                    f.write_str(" ")?;
                 }
+                for c in 1..=last {
+                    match self.elements[(r, c)] {
+                        Element::Gate(_) => {
+                            let vert = r + 1 < rows
+                                && matches!(
+                                    self.elements[(r + 1, c)],
+                                    Element::ControlBottom(_) | Element::CrossedWire
+                                );
+                            if vert {
+                                f.write_str("╰─┬─╯")?;
+                            } else {
+                                f.write_str("╰───╯")?;
+                            }
+                        }
+                        Element::CrossedWire | Element::ControlTop(_) => {
+                            if c == last {
+                                f.write_str("  │")?;
+                            } else {
+                                f.write_str("  │  ")?;
+                            }
+                        }
+                        _ => f.write_str("     ")?,
+                    }
+                }
+                f.write_str("\n")?;
             }
         }
 
@@ -579,7 +575,12 @@ q1 : ──▽──
     #[test]
     fn display_target_control_below() {
         let mut d = CircuitDrawing::new(2, 0);
-        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(1), ControlEnd::Target);
+        d.push_box_with_control(
+            Position::Qbit(0),
+            "X",
+            Position::Qbit(1),
+            ControlEnd::Target,
+        );
         assert_drawing_str_eq(
             &d,
             r#"

@@ -12,7 +12,7 @@ cargo clippy                         # Lint (draw.rs has expected warnings - WIP
 cargo fmt --check                    # Check formatting
 ```
 
-Feature compatibility: `cargo hack check --feature-powerset` (tests all combinations including no_std and std)
+Feature compatibility: `cargo hack clippy --feature-powerset` (tests all combinations including no_std and std)
 
 ## Architecture
 
