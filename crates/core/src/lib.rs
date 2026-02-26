@@ -4,6 +4,7 @@ extern crate alloc;
 
 pub mod circuit;
 mod complex;
+pub mod draw;
 pub mod operations;
 pub mod rand;
 pub mod state_vector;
