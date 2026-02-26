@@ -9,8 +9,8 @@ pub enum Position {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ControlEnd {
-    X,
-    Circle,
+    Cross,
+    Target,
     Arrow,
 }
 
@@ -220,9 +220,9 @@ impl fmt::Display for CircuitDrawing {
                                         Element::ControlTop(_) | Element::CrossedWire
                                     );
                                 if vert {
-                                    f.write_str("┌─┴─┐")?;
+                                    f.write_str("╭─┴─╮")?;
                                 } else {
-                                    f.write_str("┌───┐")?;
+                                    f.write_str("╭───╮")?;
                                 }
                             }
                             Element::CrossedWire | Element::ControlBottom(_) => {
@@ -254,13 +254,12 @@ impl fmt::Display for CircuitDrawing {
                     Element::StraightWire => f.write_str("─────")?,
                     Element::CrossedWire => f.write_str("──┼──")?,
                     Element::Gate(s) => write!(f, "┤{:^3}├", s)?,
-                    Element::ControlTop(ControlEnd::Circle)
-                    | Element::ControlBottom(ControlEnd::Circle) => f.write_str("──●──")?,
-                    Element::ControlTop(ControlEnd::X) | Element::ControlBottom(ControlEnd::X) => {
-                        f.write_str("──╳──")?
-                    }
-                    Element::ControlTop(ControlEnd::Arrow) => f.write_str("──↓──")?,
-                    Element::ControlBottom(ControlEnd::Arrow) => f.write_str("──↑──")?,
+                    Element::ControlTop(ControlEnd::Target)
+                    | Element::ControlBottom(ControlEnd::Target) => f.write_str("──⊕──")?,
+                    Element::ControlTop(ControlEnd::Cross)
+                    | Element::ControlBottom(ControlEnd::Cross) => f.write_str("──×──")?,
+                    Element::ControlTop(ControlEnd::Arrow) => f.write_str("──△──")?,
+                    Element::ControlBottom(ControlEnd::Arrow) => f.write_str("──▽──")?,
                     _ => {}
                 }
             }
@@ -281,9 +280,9 @@ impl fmt::Display for CircuitDrawing {
                                         Element::ControlBottom(_) | Element::CrossedWire
                                     );
                                 if vert {
-                                    f.write_str("└─┬─┘")?;
+                                    f.write_str("╰─┬─╯")?;
                                 } else {
-                                    f.write_str("└───┘")?;
+                                    f.write_str("╰───╯")?;
                                 }
                             }
                             Element::CrossedWire | Element::ControlTop(_) => {
@@ -362,12 +361,12 @@ mod tests {
             Position::Qbit(3),
             "X",
             Position::Qbit(0),
-            ControlEnd::Circle,
+            ControlEnd::Target,
         );
         assert_eq!(
             last_col(&d),
             vec![
-                Element::ControlTop(ControlEnd::Circle),
+                Element::ControlTop(ControlEnd::Target),
                 Element::CrossedWire,
                 Element::CrossedWire,
                 Element::Gate("X"),
@@ -378,14 +377,14 @@ mod tests {
     #[test]
     fn push_box_with_control_below_target() {
         let mut d = CircuitDrawing::new(4, 0);
-        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(3), ControlEnd::X);
+        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(3), ControlEnd::Cross);
         assert_eq!(
             last_col(&d),
             vec![
                 Element::Gate("X"),
                 Element::CrossedWire,
                 Element::CrossedWire,
-                Element::ControlBottom(ControlEnd::X),
+                Element::ControlBottom(ControlEnd::Cross),
             ]
         );
     }
@@ -397,12 +396,12 @@ mod tests {
             Position::Qbit(1),
             "Z",
             Position::Qbit(0),
-            ControlEnd::Circle,
+            ControlEnd::Target,
         );
         assert_eq!(
             last_col(&d),
             vec![
-                Element::ControlTop(ControlEnd::Circle),
+                Element::ControlTop(ControlEnd::Target),
                 Element::Gate("Z"),
                 Element::StraightWire,
             ]
@@ -414,17 +413,17 @@ mod tests {
         let mut d = CircuitDrawing::new(4, 0);
         d.push_double_control(
             Position::Qbit(0),
-            ControlEnd::Circle,
+            ControlEnd::Target,
             Position::Qbit(3),
-            ControlEnd::X,
+            ControlEnd::Cross,
         );
         assert_eq!(
             last_col(&d),
             vec![
-                Element::ControlTop(ControlEnd::Circle),
+                Element::ControlTop(ControlEnd::Target),
                 Element::CrossedWire,
                 Element::CrossedWire,
-                Element::ControlBottom(ControlEnd::X),
+                Element::ControlBottom(ControlEnd::Cross),
             ]
         );
     }
@@ -436,13 +435,13 @@ mod tests {
             Position::Qbit(3),
             ControlEnd::Arrow,
             Position::Qbit(1),
-            ControlEnd::Circle,
+            ControlEnd::Target,
         );
         assert_eq!(
             last_col(&d),
             vec![
                 Element::StraightWire,
-                Element::ControlTop(ControlEnd::Circle),
+                Element::ControlTop(ControlEnd::Target),
                 Element::CrossedWire,
                 Element::ControlBottom(ControlEnd::Arrow),
             ]
@@ -454,15 +453,15 @@ mod tests {
         let mut d = CircuitDrawing::new(3, 0);
         d.push_double_control(
             Position::Qbit(0),
-            ControlEnd::X,
+            ControlEnd::Cross,
             Position::Qbit(1),
-            ControlEnd::X,
+            ControlEnd::Cross,
         );
         assert_eq!(
             last_col(&d),
             vec![
-                Element::ControlTop(ControlEnd::X),
-                Element::ControlBottom(ControlEnd::X),
+                Element::ControlTop(ControlEnd::Cross),
+                Element::ControlBottom(ControlEnd::Cross),
                 Element::StraightWire,
             ]
         );
@@ -488,9 +487,9 @@ mod tests {
         assert_drawing_str_eq(
             &d,
             r#"
-     ┌───┐
+     ╭───╮
 q0 : ┤ H ├
-     └───┘
+     ╰───╯
 q1 : ─────
 "#,
         );
@@ -503,16 +502,91 @@ q1 : ─────
             Position::Qbit(2),
             "X",
             Position::Qbit(0),
-            ControlEnd::Circle,
+            ControlEnd::Target,
         );
         assert_drawing_str_eq(
             &d,
             r#"
-q0 : ──●──
+q0 : ──⊕──
 q1 : ──┼──
-     ┌─┴─┐
+     ╭─┴─╮
 q2 : ┤ X ├
-     └───┘
+     ╰───╯
+"#,
+        );
+    }
+
+    #[test]
+    fn display_cross_control_above() {
+        let mut d = CircuitDrawing::new(2, 0);
+        d.push_box_with_control(Position::Qbit(1), "X", Position::Qbit(0), ControlEnd::Cross);
+        assert_drawing_str_eq(
+            &d,
+            r#"
+q0 : ──×──
+     ╭─┴─╮
+q1 : ┤ X ├
+     ╰───╯
+"#,
+        );
+    }
+
+    #[test]
+    fn display_cross_control_below() {
+        let mut d = CircuitDrawing::new(2, 0);
+        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(1), ControlEnd::Cross);
+        assert_drawing_str_eq(
+            &d,
+            r#"
+     ╭───╮
+q0 : ┤ X ├
+     ╰─┬─╯
+q1 : ──×──
+"#,
+        );
+    }
+
+    #[test]
+    fn display_arrow_control_above() {
+        let mut d = CircuitDrawing::new(2, 0);
+        d.push_box_with_control(Position::Qbit(1), "X", Position::Qbit(0), ControlEnd::Arrow);
+        assert_drawing_str_eq(
+            &d,
+            r#"
+q0 : ──△──
+     ╭─┴─╮
+q1 : ┤ X ├
+     ╰───╯
+"#,
+        );
+    }
+
+    #[test]
+    fn display_arrow_control_below() {
+        let mut d = CircuitDrawing::new(2, 0);
+        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(1), ControlEnd::Arrow);
+        assert_drawing_str_eq(
+            &d,
+            r#"
+     ╭───╮
+q0 : ┤ X ├
+     ╰─┬─╯
+q1 : ──▽──
+"#,
+        );
+    }
+
+    #[test]
+    fn display_target_control_below() {
+        let mut d = CircuitDrawing::new(2, 0);
+        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(1), ControlEnd::Target);
+        assert_drawing_str_eq(
+            &d,
+            r#"
+     ╭───╮
+q0 : ┤ X ├
+     ╰─┬─╯
+q1 : ──⊕──
 "#,
         );
     }
@@ -525,21 +599,21 @@ q2 : ┤ X ├
             Position::Qbit(1),
             "X",
             Position::Qbit(0),
-            ControlEnd::Circle,
+            ControlEnd::Target,
         );
         d.push_box(Position::Cbit(0), "M");
         assert_drawing_str_eq(
             &d,
             r#"
-     ┌───┐
-q0 : ┤ H ├──●───────
-     └───┘  │
-          ┌─┴─┐
+     ╭───╮
+q0 : ┤ H ├──⊕───────
+     ╰───╯  │
+          ╭─┴─╮
 q1 : ─────┤ X ├─────
-          └───┘
-               ┌───┐
+          ╰───╯
+               ╭───╮
 c0 : ──────────┤ M ├
-               └───┘
+               ╰───╯
 "#,
         );
     }
