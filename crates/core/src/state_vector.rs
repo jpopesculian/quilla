@@ -73,7 +73,7 @@ impl<T> StateVector<T> {
 }
 
 impl<O> Circuit<O> {
-    pub fn run_once_with_rng<T>(&self, rng: &mut DynRng) -> BitVec
+    pub fn sample_once_with_rng<T>(&self, rng: &mut DynRng) -> BitVec
     where
         O: StateVectorOperation<T>,
         T: Clone + Num,
@@ -83,36 +83,36 @@ impl<O> Circuit<O> {
         state.cstate
     }
 
-    pub fn run_once<T>(&self) -> BitVec
+    pub fn sample_once<T>(&self) -> BitVec
     where
         O: StateVectorOperation<T>,
         T: Clone + Num,
     {
         let mut rng = crate::rand::rng();
-        self.run_once_with_rng(&mut rng)
+        self.sample_once_with_rng(&mut rng)
     }
 
-    pub fn run_with_rng<T>(&self, shots: usize, rng: &mut DynRng) -> BTreeMap<BitVec, usize>
+    pub fn sample_with_rng<T>(&self, shots: usize, rng: &mut DynRng) -> BTreeMap<BitVec, usize>
     where
         O: StateVectorOperation<T>,
         T: Clone + Num,
     {
         let mut results = BTreeMap::new();
         for _ in 0..shots {
-            let result = self.run_once_with_rng(rng);
+            let result = self.sample_once_with_rng(rng);
             let count = results.entry(result).or_insert(0);
             *count += 1
         }
         results
     }
 
-    pub fn run<T>(&self, shots: usize) -> BTreeMap<BitVec, usize>
+    pub fn sample<T>(&self, shots: usize) -> BTreeMap<BitVec, usize>
     where
         O: StateVectorOperation<T>,
         T: Clone + Num,
     {
         let mut rng = crate::rand::rng();
-        self.run_with_rng(shots, &mut rng)
+        self.sample_with_rng(shots, &mut rng)
     }
 }
 
@@ -141,34 +141,34 @@ mod tests {
     }
 
     #[test]
-    fn run_once_with_rng_applies_operations_in_order() {
+    fn sample_once_with_rng_applies_operations_in_order() {
         let mut circuit = Circuit::new(1, 1);
         circuit.op(SetCBitOp::new(0, false));
         circuit.op(SetCBitOp::new(0, true));
 
         let mut rng = crate::rand::rng();
-        let result = circuit.run_once_with_rng::<f64>(&mut rng);
+        let result = circuit.sample_once_with_rng::<f64>(&mut rng);
 
         assert_eq!(result, bitvec![1]);
     }
 
     #[test]
-    fn run_once_returns_classical_state() {
+    fn sample_once_returns_classical_state() {
         let mut circuit = Circuit::new(1, 1);
         circuit.op(SetCBitOp::new(0, true));
 
-        let result = circuit.run_once::<f64>();
+        let result = circuit.sample_once::<f64>();
 
         assert_eq!(result, bitvec![1]);
     }
 
     #[test]
-    fn run_with_rng_accumulates_shot_counts() {
+    fn sample_with_rng_accumulates_shot_counts() {
         let mut circuit = Circuit::new(1, 1);
         circuit.op(SetCBitOp::new(0, true));
 
         let mut rng = crate::rand::rng();
-        let results = circuit.run_with_rng::<f64>(5, &mut rng);
+        let results = circuit.sample_with_rng::<f64>(5, &mut rng);
 
         let expected = bitvec![1];
         assert_eq!(results.len(), 1);
@@ -176,11 +176,11 @@ mod tests {
     }
 
     #[test]
-    fn run_returns_empty_map_for_zero_shots() {
+    fn sample_returns_empty_map_for_zero_shots() {
         let mut circuit = Circuit::new(1, 1);
         circuit.op(SetCBitOp::new(0, true));
 
-        let results = circuit.run::<f64>(0);
+        let results = circuit.sample::<f64>(0);
 
         assert!(results.is_empty());
     }
@@ -190,7 +190,7 @@ mod tests {
         let mut circuit = crate::circuit::DynCircuit::new(2, 2);
         circuit.x(1).h(0).cx(0, 1).meas(0, 0).meas(1, 1);
 
-        let results = circuit.run::<f64>(1000);
+        let results = circuit.sample::<f64>(1000);
 
         let b00 = bitvec![0, 0];
         let b01 = bitvec![1, 0];
