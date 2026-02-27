@@ -185,6 +185,9 @@ impl fmt::Display for CircuitDrawing {
 
         let label_pad = max_label_width + 3;
 
+        let is_gate =
+            |r: usize, c: usize| matches!(self.elements[(r, c)], Element::Gate(_));
+
         // Whether a cell has content on its top sub-line
         let has_top = |r: usize, c: usize| {
             matches!(
@@ -201,12 +204,25 @@ impl fmt::Display for CircuitDrawing {
             )
         };
 
-        for r in 0..rows {
-            let row_has_gate =
-                (1..ncols).any(|c| matches!(self.elements[(r, c)], Element::Gate(_)));
+        let row_has_gate: Vec<bool> = (0..rows)
+            .map(|r| (1..ncols).any(|c| is_gate(r, c)))
+            .collect();
 
-            // Top sub-line (only for rows with gates)
-            if row_has_gate && let Some(last) = (1..ncols).rfind(|&c| has_top(r, c)) {
+        // can_merge[r]: merge row r's bottom sub-line with row r+1's top sub-line into one.
+        // Possible when both rows have gates but no column has a gate in both rows.
+        let can_merge: Vec<bool> = (0..rows)
+            .map(|r| {
+                r + 1 < rows
+                    && row_has_gate[r]
+                    && row_has_gate[r + 1]
+                    && !(1..ncols).any(|c| is_gate(r, c) && is_gate(r + 1, c))
+            })
+            .collect();
+
+        for r in 0..rows {
+            // Top sub-line: skip if the previous row already emitted a merged line covering this.
+            let show_top = row_has_gate[r] && (r == 0 || !can_merge[r - 1]);
+            if show_top && let Some(last) = (1..ncols).rfind(|&c| has_top(r, c)) {
                 for _ in 0..label_pad {
                     f.write_str(" ")?;
                 }
@@ -263,8 +279,49 @@ impl fmt::Display for CircuitDrawing {
             }
             f.write_str("\n")?;
 
-            // Bottom sub-line (only for rows with gates)
-            if row_has_gate && let Some(last) = (1..ncols).rfind(|&c| has_bot(r, c)) {
+            // Bottom sub-line, or merged bottom+top when adjacent rows can be collapsed.
+            if can_merge[r] {
+                // One line covers row r's bottom and row r+1's top.
+                if let Some(last) =
+                    (1..ncols).rfind(|&c| has_bot(r, c) || has_top(r + 1, c))
+                {
+                    for _ in 0..label_pad {
+                        f.write_str(" ")?;
+                    }
+                    for c in 1..=last {
+                        if is_gate(r, c) {
+                            let vert = matches!(
+                                self.elements[(r + 1, c)],
+                                Element::ControlBottom(_) | Element::CrossedWire
+                            );
+                            if vert {
+                                f.write_str("╰─┬─╯")?;
+                            } else {
+                                f.write_str("╰───╯")?;
+                            }
+                        } else if is_gate(r + 1, c) {
+                            let vert = matches!(
+                                self.elements[(r, c)],
+                                Element::ControlTop(_) | Element::CrossedWire
+                            );
+                            if vert {
+                                f.write_str("╭─┴─╮")?;
+                            } else {
+                                f.write_str("╭───╮")?;
+                            }
+                        } else if has_bot(r, c) || has_top(r + 1, c) {
+                            if c == last {
+                                f.write_str("  │")?;
+                            } else {
+                                f.write_str("  │  ")?;
+                            }
+                        } else {
+                            f.write_str("     ")?;
+                        }
+                    }
+                    f.write_str("\n")?;
+                }
+            } else if row_has_gate[r] && let Some(last) = (1..ncols).rfind(|&c| has_bot(r, c)) {
                 for _ in 0..label_pad {
                     f.write_str(" ")?;
                 }
@@ -593,6 +650,23 @@ q1 : ──⊕──
     }
 
     #[test]
+    fn display_two_gates_same_column() {
+        let mut d = CircuitDrawing::new(2, 0);
+        d.push_column(vec![Element::Gate("H"), Element::Gate("X")]);
+        assert_drawing_str_eq(
+            &d,
+            r#"
+     ╭───╮
+q0 : ┤ H ├
+     ╰───╯
+     ╭───╮
+q1 : ┤ X ├
+     ╰───╯
+"#,
+        );
+    }
+
+    #[test]
     fn display_multi_column() {
         let mut d = CircuitDrawing::new(2, 1);
         d.push_box(Position::Qbit(0), "H");
@@ -608,11 +682,9 @@ q1 : ──⊕──
             r#"
      ╭───╮
 q0 : ┤ H ├──⊕───────
-     ╰───╯  │
-          ╭─┴─╮
+     ╰───╯╭─┴─╮
 q1 : ─────┤ X ├─────
-          ╰───╯
-               ╭───╮
+          ╰───╯╭───╮
 c0 : ──────────┤ M ├
                ╰───╯
 "#,
