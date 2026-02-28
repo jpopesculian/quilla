@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::fmt;
-use ndarray::{Array2, Axis, concatenate};
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Position {
     Qbit(usize),
     Cbit(usize),
@@ -14,12 +14,12 @@ pub enum ControlEnd {
     Arrow,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum Element {
     Qbit(usize),
     Cbit(usize),
     /// Max 3 characters
-    Gate(&'static str),
+    Gate(String),
     StraightWire,
     CrossedWire,
     ControlTop(ControlEnd),
@@ -29,7 +29,8 @@ enum Element {
 pub struct CircuitDrawing {
     qbits: usize,
     cbits: usize,
-    elements: Array2<Element>,
+    operations: usize,
+    elements: Vec<Element>,
 }
 
 impl CircuitDrawing {
@@ -37,202 +38,200 @@ impl CircuitDrawing {
         Self {
             qbits,
             cbits,
-            elements: Array2::from_shape_vec(
-                (qbits + cbits, 1),
-                (0..qbits)
-                    .map(Element::Qbit)
-                    .chain((0..cbits).map(Element::Cbit))
-                    .collect(),
-            )
-            .unwrap(),
+            operations: 1,
+            elements: (0..qbits)
+                .map(Element::Qbit)
+                .chain((0..cbits).map(Element::Cbit))
+                .collect(),
         }
     }
 
-    fn row(&self, pos: &Position) -> usize {
+    #[inline]
+    fn wire(&self, pos: &Position) -> usize {
         match *pos {
             Position::Qbit(i) => i,
             Position::Cbit(i) => self.qbits + i,
         }
     }
 
-    fn push_column(&mut self, col: Vec<Element>) {
-        let rows = self.qbits + self.cbits;
-        let col = Array2::from_shape_vec((rows, 1), col).unwrap();
-        self.elements = concatenate(Axis(1), &[self.elements.view(), col.view()]).unwrap();
+    #[inline]
+    fn wires(&self) -> usize {
+        self.qbits + self.cbits
     }
 
-    pub fn push_box(&mut self, target: Position, name: &'static str) {
-        let target_row = self.row(&target);
-        let rows = self.qbits + self.cbits;
-        let col: Vec<Element> = (0..rows)
-            .map(|r| {
-                if r == target_row {
-                    Element::Gate(name)
+    #[inline]
+    fn push_operation(&mut self, operation: Vec<Element>) {
+        self.elements.extend(operation);
+        self.operations += 1;
+    }
+
+    #[inline]
+    fn get(&self, operation: usize, wire: usize) -> Option<&Element> {
+        self.elements.get(operation * self.wires() + wire)
+    }
+
+    pub fn push_box(&mut self, target: Position, name: impl ToString) {
+        let target_wire = self.wire(&target);
+        let operation = (0..self.wires())
+            .map(|wire| {
+                if wire == target_wire {
+                    Element::Gate(name.to_string())
                 } else {
                     Element::StraightWire
                 }
             })
             .collect();
-        self.push_column(col);
+        self.push_operation(operation);
     }
 
     pub fn push_box_with_control(
         &mut self,
         target: Position,
-        name: &'static str,
+        name: impl ToString,
         control: Position,
         end: ControlEnd,
     ) {
-        let target_row = self.row(&target);
-        let control_row = self.row(&control);
-        let (top, bottom) = if control_row < target_row {
-            (control_row, target_row)
+        let target_wire = self.wire(&target);
+        let control_wire = self.wire(&control);
+        let (top, bottom) = if control_wire < target_wire {
+            (control_wire, target_wire)
         } else {
-            (target_row, control_row)
+            (target_wire, control_wire)
         };
-        let rows = self.qbits + self.cbits;
-        let col: Vec<Element> = (0..rows)
-            .map(|r| {
-                if r == target_row {
-                    Element::Gate(name)
-                } else if r == control_row {
-                    if control_row < target_row {
+        let operation = (0..self.wires())
+            .map(|wire| {
+                if wire == target_wire {
+                    Element::Gate(name.to_string())
+                } else if wire == control_wire {
+                    if control_wire < target_wire {
                         Element::ControlTop(end)
                     } else {
                         Element::ControlBottom(end)
                     }
-                } else if r > top && r < bottom {
+                } else if wire > top && wire < bottom {
                     Element::CrossedWire
                 } else {
                     Element::StraightWire
                 }
             })
             .collect();
-        self.push_column(col);
+        self.push_operation(operation);
     }
 
     pub fn push_double_control(
         &mut self,
-        target1: Position,
+        control1: Position,
         end1: ControlEnd,
-        target2: Position,
+        control2: Position,
         end2: ControlEnd,
     ) {
-        let row1 = self.row(&target1);
-        let row2 = self.row(&target2);
-        let (top, bottom) = if row1 < row2 {
-            (row1, row2)
+        let wire1 = self.wire(&control1);
+        let wire2 = self.wire(&control2);
+        let (top, bottom) = if wire1 < wire2 {
+            (wire1, wire2)
         } else {
-            (row2, row1)
+            (wire2, wire1)
         };
-        let rows = self.qbits + self.cbits;
-        let col: Vec<Element> = (0..rows)
-            .map(|r| {
-                if r == row1 {
-                    if row1 < row2 {
+        let operation = (0..self.wires())
+            .map(|wire| {
+                if wire == wire1 {
+                    if wire1 < wire2 {
                         Element::ControlTop(end1)
                     } else {
                         Element::ControlBottom(end1)
                     }
-                } else if r == row2 {
-                    if row2 < row1 {
+                } else if wire == wire2 {
+                    if wire2 < wire1 {
                         Element::ControlTop(end2)
                     } else {
                         Element::ControlBottom(end2)
                     }
-                } else if r > top && r < bottom {
+                } else if wire > top && wire < bottom {
                     Element::CrossedWire
                 } else {
                     Element::StraightWire
                 }
             })
             .collect();
-        self.push_column(col);
+        self.push_operation(operation);
     }
 }
 
 impl fmt::Display for CircuitDrawing {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let rows = self.qbits + self.cbits;
-        let ncols = self.elements.ncols();
+        let wires = self.qbits + self.cbits;
+        let ops = self.operations;
 
-        // Compute label width: max of "q{i}" / "c{i}" labels
-        fn digit_count(mut n: usize) -> usize {
-            if n == 0 {
-                return 1;
-            }
-            let mut count = 0;
-            while n > 0 {
-                count += 1;
-                n /= 10;
-            }
-            count
+        if wires == 0 {
+            return Ok(());
         }
-        let max_label_width = (0..rows)
-            .map(|r| match self.elements[(r, 0)] {
-                Element::Qbit(i) | Element::Cbit(i) => 1 + digit_count(i),
-                _ => 0,
+
+        let max_bit_dec_width = (0..wires)
+            .filter_map(|wire| match self.get(0, wire)? {
+                Element::Qbit(i) | Element::Cbit(i) => {
+                    // calculate width of "q{i}" or "c{i}"
+                    let mut width = 1;
+                    let mut n = i / 10;
+                    while n > 0 {
+                        width += 1;
+                        n /= 10
+                    }
+                    Some(width)
+                }
+                _ => None,
             })
             .max()
-            .unwrap_or(1);
+            .unwrap_or(0);
 
-        struct Label(char, usize);
-        impl fmt::Display for Label {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}{}", self.0, self.1)
-            }
-        }
+        let label_pad = max_bit_dec_width + 4;
 
-        let label_pad = max_label_width + 3;
-
-        let is_gate =
-            |r: usize, c: usize| matches!(self.elements[(r, c)], Element::Gate(_));
+        let is_gate = |op: usize, wire: usize| matches!(self.get(op, wire), Some(Element::Gate(_)));
 
         // Whether a cell has content on its top sub-line
-        let has_top = |r: usize, c: usize| {
+        let has_top = |op: usize, wire: usize| {
             matches!(
-                self.elements[(r, c)],
-                Element::Gate(_) | Element::CrossedWire | Element::ControlBottom(_)
+                self.get(op, wire),
+                Some(Element::Gate(_) | Element::CrossedWire | Element::ControlBottom(_))
             )
         };
 
         // Whether a cell has content on its bottom sub-line
-        let has_bot = |r: usize, c: usize| {
+        let has_bot = |op: usize, wire: usize| {
             matches!(
-                self.elements[(r, c)],
-                Element::Gate(_) | Element::CrossedWire | Element::ControlTop(_)
+                self.get(op, wire),
+                Some(Element::Gate(_) | Element::CrossedWire | Element::ControlTop(_))
             )
         };
 
-        let row_has_gate: Vec<bool> = (0..rows)
-            .map(|r| (1..ncols).any(|c| is_gate(r, c)))
+        let wire_has_gate: Vec<bool> = (0..wires)
+            .map(|wire| (1..ops).any(|op| is_gate(op, wire)))
             .collect();
 
         // can_merge[r]: merge row r's bottom sub-line with row r+1's top sub-line into one.
         // Possible when both rows have gates but no column has a gate in both rows.
-        let can_merge: Vec<bool> = (0..rows)
-            .map(|r| {
-                r + 1 < rows
-                    && row_has_gate[r]
-                    && row_has_gate[r + 1]
-                    && !(1..ncols).any(|c| is_gate(r, c) && is_gate(r + 1, c))
+        let can_merge: Vec<bool> = (0..wires)
+            .map(|wire| {
+                wire + 1 < wires
+                    && wire_has_gate[wire]
+                    && wire_has_gate[wire + 1]
+                    && !(1..ops).any(|op| is_gate(op, wire) && is_gate(op, wire + 1))
             })
             .collect();
 
-        for r in 0..rows {
+        for wire in 0..wires {
             // Top sub-line: skip if the previous row already emitted a merged line covering this.
-            let show_top = row_has_gate[r] && (r == 0 || !can_merge[r - 1]);
-            if show_top && let Some(last) = (1..ncols).rfind(|&c| has_top(r, c)) {
+            let show_top = wire_has_gate[wire] && (wire == 0 || !can_merge[wire - 1]);
+            if show_top && let Some(last) = (1..ops).rfind(|op| has_top(*op, wire)) {
                 for _ in 0..label_pad {
                     f.write_str(" ")?;
                 }
-                for c in 1..=last {
-                    match self.elements[(r, c)] {
-                        Element::Gate(_) => {
-                            let vert = r > 0
+                for op in 1..=last {
+                    match self.get(op, wire) {
+                        Some(Element::Gate(_)) => {
+                            let vert = wire > 0
                                 && matches!(
-                                    self.elements[(r - 1, c)],
-                                    Element::ControlTop(_) | Element::CrossedWire
+                                    self.get(op, wire - 1),
+                                    Some(Element::ControlTop(_) | Element::CrossedWire)
                                 );
                             if vert {
                                 f.write_str("╭─┴─╮")?;
@@ -240,8 +239,8 @@ impl fmt::Display for CircuitDrawing {
                                 f.write_str("╭───╮")?;
                             }
                         }
-                        Element::CrossedWire | Element::ControlBottom(_) => {
-                            if c == last {
+                        Some(Element::CrossedWire | Element::ControlBottom(_)) => {
+                            if op == last {
                                 f.write_str("  │")?;
                             } else {
                                 f.write_str("  │  ")?;
@@ -254,63 +253,64 @@ impl fmt::Display for CircuitDrawing {
             }
 
             // Middle sub-line
-            match self.elements[(r, 0)] {
-                Element::Qbit(i) => {
-                    write!(f, "{:<width$} : ", Label('q', i), width = max_label_width)?
+            match self.get(0, wire) {
+                Some(Element::Qbit(i)) => {
+                    write!(f, "q{:<width$} : ", i, width = max_bit_dec_width)?
                 }
-                Element::Cbit(i) => {
-                    write!(f, "{:<width$} : ", Label('c', i), width = max_label_width)?
+                Some(Element::Cbit(i)) => {
+                    write!(f, "c{:<width$} : ", i, width = max_bit_dec_width)?
                 }
                 _ => {}
             }
-            for c in 1..ncols {
-                match self.elements[(r, c)] {
-                    Element::StraightWire => f.write_str("─────")?,
-                    Element::CrossedWire => f.write_str("──┼──")?,
-                    Element::Gate(s) => write!(f, "┤{:^3}├", s)?,
-                    Element::ControlTop(ControlEnd::Target)
-                    | Element::ControlBottom(ControlEnd::Target) => f.write_str("──⊕──")?,
-                    Element::ControlTop(ControlEnd::Cross)
-                    | Element::ControlBottom(ControlEnd::Cross) => f.write_str("──×──")?,
-                    Element::ControlTop(ControlEnd::Arrow) => f.write_str("──△──")?,
-                    Element::ControlBottom(ControlEnd::Arrow) => f.write_str("──▽──")?,
-                    _ => {}
+            for op in 1..ops {
+                if let Some(el) = self.get(op, wire) {
+                    match el {
+                        Element::StraightWire => f.write_str("─────")?,
+                        Element::CrossedWire => f.write_str("──┼──")?,
+                        Element::Gate(s) => write!(f, "┤{:^3}├", s)?,
+                        Element::ControlTop(ControlEnd::Target)
+                        | Element::ControlBottom(ControlEnd::Target) => f.write_str("──⊕──")?,
+                        Element::ControlTop(ControlEnd::Cross)
+                        | Element::ControlBottom(ControlEnd::Cross) => f.write_str("──×──")?,
+                        Element::ControlTop(ControlEnd::Arrow) => f.write_str("──△──")?,
+                        Element::ControlBottom(ControlEnd::Arrow) => f.write_str("──▽──")?,
+                        _ => {}
+                    }
                 }
             }
             f.write_str("\n")?;
 
             // Bottom sub-line, or merged bottom+top when adjacent rows can be collapsed.
-            if can_merge[r] {
+            if can_merge[wire] {
                 // One line covers row r's bottom and row r+1's top.
-                if let Some(last) =
-                    (1..ncols).rfind(|&c| has_bot(r, c) || has_top(r + 1, c))
+                if let Some(last) = (1..ops).rfind(|&op| has_bot(op, wire) || has_top(op, wire + 1))
                 {
                     for _ in 0..label_pad {
                         f.write_str(" ")?;
                     }
-                    for c in 1..=last {
-                        if is_gate(r, c) {
+                    for op in 1..=last {
+                        if is_gate(op, wire) {
                             let vert = matches!(
-                                self.elements[(r + 1, c)],
-                                Element::ControlBottom(_) | Element::CrossedWire
+                                self.get(op, wire + 1),
+                                Some(Element::ControlBottom(_) | Element::CrossedWire)
                             );
                             if vert {
                                 f.write_str("╰─┬─╯")?;
                             } else {
                                 f.write_str("╰───╯")?;
                             }
-                        } else if is_gate(r + 1, c) {
+                        } else if is_gate(op, wire + 1) {
                             let vert = matches!(
-                                self.elements[(r, c)],
-                                Element::ControlTop(_) | Element::CrossedWire
+                                self.get(op, wire),
+                                Some(Element::ControlTop(_) | Element::CrossedWire)
                             );
                             if vert {
                                 f.write_str("╭─┴─╮")?;
                             } else {
                                 f.write_str("╭───╮")?;
                             }
-                        } else if has_bot(r, c) || has_top(r + 1, c) {
-                            if c == last {
+                        } else if has_bot(op, wire) || has_top(op, wire + 1) {
+                            if op == last {
                                 f.write_str("  │")?;
                             } else {
                                 f.write_str("  │  ")?;
@@ -321,17 +321,19 @@ impl fmt::Display for CircuitDrawing {
                     }
                     f.write_str("\n")?;
                 }
-            } else if row_has_gate[r] && let Some(last) = (1..ncols).rfind(|&c| has_bot(r, c)) {
+            } else if wire_has_gate[wire]
+                && let Some(last) = (1..ops).rfind(|op| has_bot(*op, wire))
+            {
                 for _ in 0..label_pad {
                     f.write_str(" ")?;
                 }
-                for c in 1..=last {
-                    match self.elements[(r, c)] {
-                        Element::Gate(_) => {
-                            let vert = r + 1 < rows
+                for op in 1..=last {
+                    match self.get(op, wire) {
+                        Some(Element::Gate(_)) => {
+                            let vert = wire + 1 < wires
                                 && matches!(
-                                    self.elements[(r + 1, c)],
-                                    Element::ControlBottom(_) | Element::CrossedWire
+                                    self.get(op, wire + 1),
+                                    Some(Element::ControlBottom(_) | Element::CrossedWire)
                                 );
                             if vert {
                                 f.write_str("╰─┬─╯")?;
@@ -339,8 +341,8 @@ impl fmt::Display for CircuitDrawing {
                                 f.write_str("╰───╯")?;
                             }
                         }
-                        Element::CrossedWire | Element::ControlTop(_) => {
-                            if c == last {
+                        Some(Element::CrossedWire | Element::ControlTop(_)) => {
+                            if op == last {
                                 f.write_str("  │")?;
                             } else {
                                 f.write_str("  │  ")?;
@@ -363,15 +365,20 @@ mod tests {
     use alloc::vec;
 
     /// Extract the last column from the elements grid.
-    fn last_col(d: &CircuitDrawing) -> Vec<Element> {
-        let ncols = d.elements.ncols();
-        d.elements.column(ncols - 1).to_vec()
+    fn last_col(d: &CircuitDrawing) -> &[Element] {
+        &d.elements[d.elements.len() - d.wires()..]
+    }
+
+    fn assert_dim(d: &CircuitDrawing, ops: usize, wires: usize) {
+        assert_eq!(d.elements.len(), ops * wires);
+        assert_eq!(d.wires(), wires);
+        assert_eq!(d.operations, ops);
     }
 
     #[test]
     fn new_creates_label_column() {
         let d = CircuitDrawing::new(2, 1);
-        assert_eq!(d.elements.dim(), (3, 1));
+        assert_dim(&d, 1, 3);
         assert_eq!(
             last_col(&d),
             vec![Element::Qbit(0), Element::Qbit(1), Element::Cbit(0)]
@@ -382,12 +389,12 @@ mod tests {
     fn push_box_places_gate_at_target() {
         let mut d = CircuitDrawing::new(3, 0);
         d.push_box(Position::Qbit(1), "H");
-        assert_eq!(d.elements.dim(), (3, 2));
+        assert_dim(&d, 2, 3);
         assert_eq!(
             last_col(&d),
             vec![
                 Element::StraightWire,
-                Element::Gate("H"),
+                Element::Gate("H".into()),
                 Element::StraightWire
             ]
         );
@@ -402,7 +409,7 @@ mod tests {
             vec![
                 Element::StraightWire,
                 Element::StraightWire,
-                Element::Gate("M")
+                Element::Gate("M".into())
             ]
         );
     }
@@ -422,7 +429,7 @@ mod tests {
                 Element::ControlTop(ControlEnd::Target),
                 Element::CrossedWire,
                 Element::CrossedWire,
-                Element::Gate("X"),
+                Element::Gate("X".into()),
             ]
         );
     }
@@ -434,7 +441,7 @@ mod tests {
         assert_eq!(
             last_col(&d),
             vec![
-                Element::Gate("X"),
+                Element::Gate("X".into()),
                 Element::CrossedWire,
                 Element::CrossedWire,
                 Element::ControlBottom(ControlEnd::Cross),
@@ -455,7 +462,7 @@ mod tests {
             last_col(&d),
             vec![
                 Element::ControlTop(ControlEnd::Target),
-                Element::Gate("Z"),
+                Element::Gate("Z".into()),
                 Element::StraightWire,
             ]
         );
@@ -525,7 +532,7 @@ mod tests {
         let mut d = CircuitDrawing::new(2, 0);
         d.push_box(Position::Qbit(0), "H");
         d.push_box(Position::Qbit(1), "X");
-        assert_eq!(d.elements.dim(), (2, 3));
+        assert_dim(&d, 3, 2);
     }
 
     fn assert_drawing_str_eq(d: &CircuitDrawing, expected: &str) {
@@ -652,7 +659,7 @@ q1 : ──⊕──
     #[test]
     fn display_two_gates_same_column() {
         let mut d = CircuitDrawing::new(2, 0);
-        d.push_column(vec![Element::Gate("H"), Element::Gate("X")]);
+        d.push_operation(vec![Element::Gate("H".into()), Element::Gate("X".into())]);
         assert_drawing_str_eq(
             &d,
             r#"
