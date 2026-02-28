@@ -5,9 +5,10 @@ use rand::{
     distr::{Distribution, StandardUniform},
 };
 
+use crate::draw::{CircuitDrawing, ControlEnd, DrawOperation, DrawPosition};
 use crate::state_vector::{StateVector, StateVectorOperation};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Measure {
     qbit: usize,
     cbit: usize,
@@ -16,6 +17,17 @@ pub struct Measure {
 impl Measure {
     pub fn new(qbit: usize, cbit: usize) -> Self {
         Self { qbit, cbit }
+    }
+}
+
+impl DrawOperation for Measure {
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        d.push_box_with_control(
+            DrawPosition::Qbit(self.qbit),
+            "M",
+            DrawPosition::Cbit(self.cbit),
+            ControlEnd::Arrow,
+        );
     }
 }
 
@@ -63,7 +75,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::complex::{assert_complex_close, c64};
+    use crate::num::{assert_complex_close, c64};
     use crate::state_vector::StateVector;
 
     #[test]

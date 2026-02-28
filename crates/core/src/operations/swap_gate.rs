@@ -2,10 +2,11 @@ use alloc::vec;
 use ndarray::array;
 
 use super::unitary_gate::UnitaryGate;
-use crate::complex::{c32, c64};
+use crate::draw::{CircuitDrawing, ControlEnd, DrawOperation, DrawPosition};
+use crate::num::{c32, c64};
 use crate::state_vector::{StateVector, StateVectorOperation};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SwapGate {
     first: usize,
     second: usize,
@@ -14,6 +15,17 @@ pub struct SwapGate {
 impl SwapGate {
     pub fn new(first: usize, second: usize) -> Self {
         Self { first, second }
+    }
+}
+
+impl DrawOperation for SwapGate {
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        d.push_double_control(
+            DrawPosition::Qbit(self.first),
+            ControlEnd::Cross,
+            DrawPosition::Qbit(self.second),
+            ControlEnd::Cross,
+        );
     }
 }
 
@@ -62,7 +74,7 @@ impl From<SwapGate> for UnitaryGate<f64, 2> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::complex::{assert_complex_close, c64};
+    use crate::num::{assert_complex_close, c64};
     use crate::state_vector::StateVector;
 
     fn basis_state(qubits: usize, index: usize) -> StateVector<f64> {

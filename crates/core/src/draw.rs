@@ -1,24 +1,24 @@
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+
 use core::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Position {
+pub(crate) enum DrawPosition {
     Qbit(usize),
     Cbit(usize),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ControlEnd {
+pub(crate) enum ControlEnd {
     Cross,
-    Target,
+    Circle,
     Arrow,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 enum Element {
-    Qbit(usize),
-    Cbit(usize),
-    /// Max 3 characters
     Gate(String),
     StraightWire,
     CrossedWire,
@@ -38,25 +38,27 @@ impl CircuitDrawing {
         Self {
             qbits,
             cbits,
-            operations: 1,
-            elements: (0..qbits)
-                .map(Element::Qbit)
-                .chain((0..cbits).map(Element::Cbit))
-                .collect(),
+            operations: 0,
+            elements: Vec::new(),
         }
     }
 
     #[inline]
-    fn wire(&self, pos: &Position) -> usize {
-        match *pos {
-            Position::Qbit(i) => i,
-            Position::Cbit(i) => self.qbits + i,
-        }
-    }
-
-    #[inline]
-    fn wires(&self) -> usize {
+    pub fn wires(&self) -> usize {
         self.qbits + self.cbits
+    }
+
+    #[inline]
+    pub fn operations(&self) -> usize {
+        self.operations
+    }
+
+    #[inline]
+    fn wire(&self, pos: &DrawPosition) -> usize {
+        match *pos {
+            DrawPosition::Qbit(i) => i,
+            DrawPosition::Cbit(i) => self.qbits + i,
+        }
     }
 
     #[inline]
@@ -70,7 +72,11 @@ impl CircuitDrawing {
         self.elements.get(operation * self.wires() + wire)
     }
 
-    pub fn push_box(&mut self, target: Position, name: impl ToString) {
+    pub fn draw(&mut self, op: impl DrawOperation) {
+        op.draw_to(self);
+    }
+
+    pub(crate) fn push_box(&mut self, target: DrawPosition, name: impl ToString) {
         let target_wire = self.wire(&target);
         let operation = (0..self.wires())
             .map(|wire| {
@@ -84,11 +90,11 @@ impl CircuitDrawing {
         self.push_operation(operation);
     }
 
-    pub fn push_box_with_control(
+    pub(crate) fn push_box_with_control(
         &mut self,
-        target: Position,
+        target: DrawPosition,
         name: impl ToString,
-        control: Position,
+        control: DrawPosition,
         end: ControlEnd,
     ) {
         let target_wire = self.wire(&target);
@@ -118,11 +124,11 @@ impl CircuitDrawing {
         self.push_operation(operation);
     }
 
-    pub fn push_double_control(
+    pub(crate) fn push_double_control(
         &mut self,
-        control1: Position,
+        control1: DrawPosition,
         end1: ControlEnd,
-        control2: Position,
+        control2: DrawPosition,
         end2: ControlEnd,
     ) {
         let wire1 = self.wire(&control1);
@@ -157,6 +163,77 @@ impl CircuitDrawing {
     }
 }
 
+fn write_dashes(f: &mut fmt::Formatter<'_>, n: usize) -> fmt::Result {
+    for _ in 0..n {
+        f.write_str("─")?;
+    }
+    Ok(())
+}
+
+fn write_spaces(f: &mut fmt::Formatter<'_>, n: usize) -> fmt::Result {
+    for _ in 0..n {
+        f.write_str(" ")?;
+    }
+    Ok(())
+}
+
+// Write a single symbol centered in `width` columns, padded with ─
+fn write_wire_element(f: &mut fmt::Formatter<'_>, sym: &str, width: usize) -> fmt::Result {
+    let sym_len = sym.chars().count();
+    let left = (width - sym_len) / 2;
+    let right = width - sym_len - left;
+    write_dashes(f, left)?;
+    f.write_str(sym)?;
+    write_dashes(f, right)
+}
+
+// ╭─...─╮ or ╭─...connector...─╮ centered
+fn write_box_top(f: &mut fmt::Formatter<'_>, width: usize, connector: Option<char>) -> fmt::Result {
+    f.write_str("╭")?;
+    let inner = width - 2;
+    match connector {
+        None => write_dashes(f, inner)?,
+        Some(c) => {
+            let left = (inner - 1) / 2;
+            write_dashes(f, left)?;
+            write!(f, "{c}")?;
+            write_dashes(f, inner - 1 - left)?;
+        }
+    }
+    f.write_str("╮")
+}
+
+// ╰─...─╯ or ╰─...connector...─╯ centered
+fn write_box_bottom(
+    f: &mut fmt::Formatter<'_>,
+    width: usize,
+    connector: Option<char>,
+) -> fmt::Result {
+    f.write_str("╰")?;
+    let inner = width - 2;
+    match connector {
+        None => write_dashes(f, inner)?,
+        Some(c) => {
+            let left = (inner - 1) / 2;
+            write_dashes(f, left)?;
+            write!(f, "{c}")?;
+            write_dashes(f, inner - 1 - left)?;
+        }
+    }
+    f.write_str("╯")
+}
+
+// │ centered in `width` columns; trailing spaces omitted when `last`
+fn write_vertical(f: &mut fmt::Formatter<'_>, width: usize, last: bool) -> fmt::Result {
+    let left = (width - 1) / 2;
+    write_spaces(f, left)?;
+    f.write_str("│")?;
+    if !last {
+        write_spaces(f, width - 1 - left)?;
+    }
+    Ok(())
+}
+
 impl fmt::Display for CircuitDrawing {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let wires = self.qbits + self.cbits;
@@ -166,24 +243,32 @@ impl fmt::Display for CircuitDrawing {
             return Ok(());
         }
 
-        let max_bit_dec_width = (0..wires)
-            .filter_map(|wire| match self.get(0, wire)? {
-                Element::Qbit(i) | Element::Cbit(i) => {
-                    // calculate width of "q{i}" or "c{i}"
-                    let mut width = 1;
-                    let mut n = i / 10;
-                    while n > 0 {
-                        width += 1;
-                        n /= 10
-                    }
-                    Some(width)
-                }
-                _ => None,
-            })
-            .max()
-            .unwrap_or(0);
+        let max_bit_dec_width = {
+            let i = core::cmp::max(self.qbits, self.cbits) - 1;
+            let mut width = 1;
+            let mut n = i / 10;
+            while n > 0 {
+                width += 1;
+                n /= 10
+            }
+            width
+        };
 
-        let label_pad = max_bit_dec_width + 4;
+        let bit_label_pad = max_bit_dec_width + 4;
+
+        // Per-operation-column width: max gate label width (name + 4), minimum 5.
+        let col_widths: Vec<usize> = (0..ops)
+            .map(|op| {
+                (0..wires)
+                    .filter_map(|wire| match self.get(op, wire) {
+                        Some(Element::Gate(s)) => Some(s.chars().count() + 4),
+                        _ => None,
+                    })
+                    .max()
+                    .unwrap_or(5)
+                    .max(5)
+            })
+            .collect();
 
         let is_gate = |op: usize, wire: usize| matches!(self.get(op, wire), Some(Element::Gate(_)));
 
@@ -204,7 +289,7 @@ impl fmt::Display for CircuitDrawing {
         };
 
         let wire_has_gate: Vec<bool> = (0..wires)
-            .map(|wire| (1..ops).any(|op| is_gate(op, wire)))
+            .map(|wire| (0..ops).any(|op| is_gate(op, wire)))
             .collect();
 
         // can_merge[r]: merge row r's bottom sub-line with row r+1's top sub-line into one.
@@ -214,18 +299,18 @@ impl fmt::Display for CircuitDrawing {
                 wire + 1 < wires
                     && wire_has_gate[wire]
                     && wire_has_gate[wire + 1]
-                    && !(1..ops).any(|op| is_gate(op, wire) && is_gate(op, wire + 1))
+                    && !(0..ops).any(|op| is_gate(op, wire) && is_gate(op, wire + 1))
             })
             .collect();
 
         for wire in 0..wires {
             // Top sub-line: skip if the previous row already emitted a merged line covering this.
             let show_top = wire_has_gate[wire] && (wire == 0 || !can_merge[wire - 1]);
-            if show_top && let Some(last) = (1..ops).rfind(|op| has_top(*op, wire)) {
-                for _ in 0..label_pad {
+            if show_top && let Some(last) = (0..ops).rfind(|op| has_top(*op, wire)) {
+                for _ in 0..bit_label_pad {
                     f.write_str(" ")?;
                 }
-                for op in 1..=last {
+                for (op, &w) in col_widths.iter().enumerate().take(last + 1) {
                     match self.get(op, wire) {
                         Some(Element::Gate(_)) => {
                             let vert = wire > 0
@@ -234,47 +319,47 @@ impl fmt::Display for CircuitDrawing {
                                     Some(Element::ControlTop(_) | Element::CrossedWire)
                                 );
                             if vert {
-                                f.write_str("╭─┴─╮")?;
+                                write_box_top(f, w, Some('┴'))?;
                             } else {
-                                f.write_str("╭───╮")?;
+                                write_box_top(f, w, None)?;
                             }
                         }
                         Some(Element::CrossedWire | Element::ControlBottom(_)) => {
-                            if op == last {
-                                f.write_str("  │")?;
-                            } else {
-                                f.write_str("  │  ")?;
-                            }
+                            write_vertical(f, w, op == last)?;
                         }
-                        _ => f.write_str("     ")?,
+                        _ => write_spaces(f, w)?,
                     }
                 }
                 f.write_str("\n")?;
             }
 
             // Middle sub-line
-            match self.get(0, wire) {
-                Some(Element::Qbit(i)) => {
-                    write!(f, "q{:<width$} : ", i, width = max_bit_dec_width)?
-                }
-                Some(Element::Cbit(i)) => {
-                    write!(f, "c{:<width$} : ", i, width = max_bit_dec_width)?
-                }
-                _ => {}
+            if wire < self.qbits {
+                write!(f, "q{:<width$} : ", wire, width = max_bit_dec_width)?;
+            } else {
+                write!(
+                    f,
+                    "c{:<width$} : ",
+                    wire - self.qbits,
+                    width = max_bit_dec_width
+                )?;
             }
-            for op in 1..ops {
+            for (op, &w) in col_widths.iter().enumerate() {
                 if let Some(el) = self.get(op, wire) {
                     match el {
-                        Element::StraightWire => f.write_str("─────")?,
-                        Element::CrossedWire => f.write_str("──┼──")?,
-                        Element::Gate(s) => write!(f, "┤{:^3}├", s)?,
-                        Element::ControlTop(ControlEnd::Target)
-                        | Element::ControlBottom(ControlEnd::Target) => f.write_str("──⊕──")?,
+                        Element::StraightWire => write_dashes(f, w)?,
+                        Element::CrossedWire => write_wire_element(f, "┼", w)?,
+                        Element::Gate(s) => write!(f, "┤ {s} ├")?,
+                        Element::ControlTop(ControlEnd::Circle)
+                        | Element::ControlBottom(ControlEnd::Circle) => {
+                            write_wire_element(f, "●", w)?
+                        }
                         Element::ControlTop(ControlEnd::Cross)
-                        | Element::ControlBottom(ControlEnd::Cross) => f.write_str("──×──")?,
-                        Element::ControlTop(ControlEnd::Arrow) => f.write_str("──△──")?,
-                        Element::ControlBottom(ControlEnd::Arrow) => f.write_str("──▽──")?,
-                        _ => {}
+                        | Element::ControlBottom(ControlEnd::Cross) => {
+                            write_wire_element(f, "✖", w)?
+                        }
+                        Element::ControlTop(ControlEnd::Arrow) => write_wire_element(f, "▲", w)?,
+                        Element::ControlBottom(ControlEnd::Arrow) => write_wire_element(f, "▼", w)?,
                     }
                 }
             }
@@ -283,21 +368,21 @@ impl fmt::Display for CircuitDrawing {
             // Bottom sub-line, or merged bottom+top when adjacent rows can be collapsed.
             if can_merge[wire] {
                 // One line covers row r's bottom and row r+1's top.
-                if let Some(last) = (1..ops).rfind(|&op| has_bot(op, wire) || has_top(op, wire + 1))
+                if let Some(last) = (0..ops).rfind(|&op| has_bot(op, wire) || has_top(op, wire + 1))
                 {
-                    for _ in 0..label_pad {
+                    for _ in 0..bit_label_pad {
                         f.write_str(" ")?;
                     }
-                    for op in 1..=last {
+                    for (op, &w) in col_widths.iter().enumerate().take(last + 1) {
                         if is_gate(op, wire) {
                             let vert = matches!(
                                 self.get(op, wire + 1),
                                 Some(Element::ControlBottom(_) | Element::CrossedWire)
                             );
                             if vert {
-                                f.write_str("╰─┬─╯")?;
+                                write_box_bottom(f, w, Some('┬'))?;
                             } else {
-                                f.write_str("╰───╯")?;
+                                write_box_bottom(f, w, None)?;
                             }
                         } else if is_gate(op, wire + 1) {
                             let vert = matches!(
@@ -305,29 +390,25 @@ impl fmt::Display for CircuitDrawing {
                                 Some(Element::ControlTop(_) | Element::CrossedWire)
                             );
                             if vert {
-                                f.write_str("╭─┴─╮")?;
+                                write_box_top(f, w, Some('┴'))?;
                             } else {
-                                f.write_str("╭───╮")?;
+                                write_box_top(f, w, None)?;
                             }
                         } else if has_bot(op, wire) || has_top(op, wire + 1) {
-                            if op == last {
-                                f.write_str("  │")?;
-                            } else {
-                                f.write_str("  │  ")?;
-                            }
+                            write_vertical(f, w, op == last)?;
                         } else {
-                            f.write_str("     ")?;
+                            write_spaces(f, w)?;
                         }
                     }
                     f.write_str("\n")?;
                 }
             } else if wire_has_gate[wire]
-                && let Some(last) = (1..ops).rfind(|op| has_bot(*op, wire))
+                && let Some(last) = (0..ops).rfind(|op| has_bot(*op, wire))
             {
-                for _ in 0..label_pad {
+                for _ in 0..bit_label_pad {
                     f.write_str(" ")?;
                 }
-                for op in 1..=last {
+                for (op, &w) in col_widths.iter().enumerate().take(last + 1) {
                     match self.get(op, wire) {
                         Some(Element::Gate(_)) => {
                             let vert = wire + 1 < wires
@@ -336,19 +417,15 @@ impl fmt::Display for CircuitDrawing {
                                     Some(Element::ControlBottom(_) | Element::CrossedWire)
                                 );
                             if vert {
-                                f.write_str("╰─┬─╯")?;
+                                write_box_bottom(f, w, Some('┬'))?;
                             } else {
-                                f.write_str("╰───╯")?;
+                                write_box_bottom(f, w, None)?;
                             }
                         }
                         Some(Element::CrossedWire | Element::ControlTop(_)) => {
-                            if op == last {
-                                f.write_str("  │")?;
-                            } else {
-                                f.write_str("  │  ")?;
-                            }
+                            write_vertical(f, w, op == last)?;
                         }
-                        _ => f.write_str("     ")?,
+                        _ => write_spaces(f, w)?,
                     }
                 }
                 f.write_str("\n")?;
@@ -356,6 +433,28 @@ impl fmt::Display for CircuitDrawing {
         }
 
         Ok(())
+    }
+}
+
+pub trait DrawOperation {
+    fn draw_to(&self, d: &mut CircuitDrawing);
+}
+
+impl<T> DrawOperation for &T
+where
+    T: DrawOperation + ?Sized,
+{
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        T::draw_to(self, d)
+    }
+}
+
+impl<T> DrawOperation for Box<T>
+where
+    T: DrawOperation + ?Sized,
+{
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        T::draw_to(self, d)
     }
 }
 
@@ -376,20 +475,16 @@ mod tests {
     }
 
     #[test]
-    fn new_creates_label_column() {
+    fn new_starts_empty() {
         let d = CircuitDrawing::new(2, 1);
-        assert_dim(&d, 1, 3);
-        assert_eq!(
-            last_col(&d),
-            vec![Element::Qbit(0), Element::Qbit(1), Element::Cbit(0)]
-        );
+        assert_dim(&d, 0, 3);
     }
 
     #[test]
     fn push_box_places_gate_at_target() {
         let mut d = CircuitDrawing::new(3, 0);
-        d.push_box(Position::Qbit(1), "H");
-        assert_dim(&d, 2, 3);
+        d.push_box(DrawPosition::Qbit(1), "H");
+        assert_dim(&d, 1, 3);
         assert_eq!(
             last_col(&d),
             vec![
@@ -403,7 +498,7 @@ mod tests {
     #[test]
     fn push_box_targets_cbit() {
         let mut d = CircuitDrawing::new(2, 1);
-        d.push_box(Position::Cbit(0), "M");
+        d.push_box(DrawPosition::Cbit(0), "M");
         assert_eq!(
             last_col(&d),
             vec![
@@ -418,15 +513,15 @@ mod tests {
     fn push_box_with_control_above_target() {
         let mut d = CircuitDrawing::new(4, 0);
         d.push_box_with_control(
-            Position::Qbit(3),
+            DrawPosition::Qbit(3),
             "X",
-            Position::Qbit(0),
-            ControlEnd::Target,
+            DrawPosition::Qbit(0),
+            ControlEnd::Circle,
         );
         assert_eq!(
             last_col(&d),
             vec![
-                Element::ControlTop(ControlEnd::Target),
+                Element::ControlTop(ControlEnd::Circle),
                 Element::CrossedWire,
                 Element::CrossedWire,
                 Element::Gate("X".into()),
@@ -437,7 +532,12 @@ mod tests {
     #[test]
     fn push_box_with_control_below_target() {
         let mut d = CircuitDrawing::new(4, 0);
-        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(3), ControlEnd::Cross);
+        d.push_box_with_control(
+            DrawPosition::Qbit(0),
+            "X",
+            DrawPosition::Qbit(3),
+            ControlEnd::Cross,
+        );
         assert_eq!(
             last_col(&d),
             vec![
@@ -453,15 +553,15 @@ mod tests {
     fn push_box_with_control_adjacent() {
         let mut d = CircuitDrawing::new(3, 0);
         d.push_box_with_control(
-            Position::Qbit(1),
+            DrawPosition::Qbit(1),
             "Z",
-            Position::Qbit(0),
-            ControlEnd::Target,
+            DrawPosition::Qbit(0),
+            ControlEnd::Circle,
         );
         assert_eq!(
             last_col(&d),
             vec![
-                Element::ControlTop(ControlEnd::Target),
+                Element::ControlTop(ControlEnd::Circle),
                 Element::Gate("Z".into()),
                 Element::StraightWire,
             ]
@@ -472,15 +572,15 @@ mod tests {
     fn push_double_control_target1_above_target2() {
         let mut d = CircuitDrawing::new(4, 0);
         d.push_double_control(
-            Position::Qbit(0),
-            ControlEnd::Target,
-            Position::Qbit(3),
+            DrawPosition::Qbit(0),
+            ControlEnd::Circle,
+            DrawPosition::Qbit(3),
             ControlEnd::Cross,
         );
         assert_eq!(
             last_col(&d),
             vec![
-                Element::ControlTop(ControlEnd::Target),
+                Element::ControlTop(ControlEnd::Circle),
                 Element::CrossedWire,
                 Element::CrossedWire,
                 Element::ControlBottom(ControlEnd::Cross),
@@ -492,16 +592,16 @@ mod tests {
     fn push_double_control_target1_below_target2() {
         let mut d = CircuitDrawing::new(4, 0);
         d.push_double_control(
-            Position::Qbit(3),
+            DrawPosition::Qbit(3),
             ControlEnd::Arrow,
-            Position::Qbit(1),
-            ControlEnd::Target,
+            DrawPosition::Qbit(1),
+            ControlEnd::Circle,
         );
         assert_eq!(
             last_col(&d),
             vec![
                 Element::StraightWire,
-                Element::ControlTop(ControlEnd::Target),
+                Element::ControlTop(ControlEnd::Circle),
                 Element::CrossedWire,
                 Element::ControlBottom(ControlEnd::Arrow),
             ]
@@ -512,9 +612,9 @@ mod tests {
     fn push_double_control_adjacent() {
         let mut d = CircuitDrawing::new(3, 0);
         d.push_double_control(
-            Position::Qbit(0),
+            DrawPosition::Qbit(0),
             ControlEnd::Cross,
-            Position::Qbit(1),
+            DrawPosition::Qbit(1),
             ControlEnd::Cross,
         );
         assert_eq!(
@@ -530,20 +630,20 @@ mod tests {
     #[test]
     fn multiple_pushes_grow_columns() {
         let mut d = CircuitDrawing::new(2, 0);
-        d.push_box(Position::Qbit(0), "H");
-        d.push_box(Position::Qbit(1), "X");
-        assert_dim(&d, 3, 2);
+        d.push_box(DrawPosition::Qbit(0), "H");
+        d.push_box(DrawPosition::Qbit(1), "X");
+        assert_dim(&d, 2, 2);
     }
 
     fn assert_drawing_str_eq(d: &CircuitDrawing, expected: &str) {
         use alloc::string::ToString;
-        assert_eq!(d.to_string(), expected.trim_start_matches('\n'));
+        pretty_assertions::assert_eq!(d.to_string(), expected.trim_start_matches('\n'));
     }
 
     #[test]
     fn display_single_gate() {
         let mut d = CircuitDrawing::new(2, 0);
-        d.push_box(Position::Qbit(0), "H");
+        d.push_box(DrawPosition::Qbit(0), "H");
         assert_drawing_str_eq(
             &d,
             r#"
@@ -559,15 +659,15 @@ q1 : ─────
     fn display_controlled_gate() {
         let mut d = CircuitDrawing::new(3, 0);
         d.push_box_with_control(
-            Position::Qbit(2),
+            DrawPosition::Qbit(2),
             "X",
-            Position::Qbit(0),
-            ControlEnd::Target,
+            DrawPosition::Qbit(0),
+            ControlEnd::Circle,
         );
         assert_drawing_str_eq(
             &d,
             r#"
-q0 : ──⊕──
+q0 : ──●──
 q1 : ──┼──
      ╭─┴─╮
 q2 : ┤ X ├
@@ -577,13 +677,38 @@ q2 : ┤ X ├
     }
 
     #[test]
-    fn display_cross_control_above() {
+    fn display_wide_gate() {
         let mut d = CircuitDrawing::new(2, 0);
-        d.push_box_with_control(Position::Qbit(1), "X", Position::Qbit(0), ControlEnd::Cross);
+        d.push_box_with_control(
+            DrawPosition::Qbit(1),
+            "Hello",
+            DrawPosition::Qbit(0),
+            ControlEnd::Circle,
+        );
         assert_drawing_str_eq(
             &d,
             r#"
-q0 : ──×──
+q0 : ────●────
+     ╭───┴───╮
+q1 : ┤ Hello ├
+     ╰───────╯
+"#,
+        );
+    }
+
+    #[test]
+    fn display_cross_control_above() {
+        let mut d = CircuitDrawing::new(2, 0);
+        d.push_box_with_control(
+            DrawPosition::Qbit(1),
+            "X",
+            DrawPosition::Qbit(0),
+            ControlEnd::Cross,
+        );
+        assert_drawing_str_eq(
+            &d,
+            r#"
+q0 : ──✖──
      ╭─┴─╮
 q1 : ┤ X ├
      ╰───╯
@@ -594,14 +719,19 @@ q1 : ┤ X ├
     #[test]
     fn display_cross_control_below() {
         let mut d = CircuitDrawing::new(2, 0);
-        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(1), ControlEnd::Cross);
+        d.push_box_with_control(
+            DrawPosition::Qbit(0),
+            "X",
+            DrawPosition::Qbit(1),
+            ControlEnd::Cross,
+        );
         assert_drawing_str_eq(
             &d,
             r#"
      ╭───╮
 q0 : ┤ X ├
      ╰─┬─╯
-q1 : ──×──
+q1 : ──✖──
 "#,
         );
     }
@@ -609,11 +739,16 @@ q1 : ──×──
     #[test]
     fn display_arrow_control_above() {
         let mut d = CircuitDrawing::new(2, 0);
-        d.push_box_with_control(Position::Qbit(1), "X", Position::Qbit(0), ControlEnd::Arrow);
+        d.push_box_with_control(
+            DrawPosition::Qbit(1),
+            "X",
+            DrawPosition::Qbit(0),
+            ControlEnd::Arrow,
+        );
         assert_drawing_str_eq(
             &d,
             r#"
-q0 : ──△──
+q0 : ──▲──
      ╭─┴─╮
 q1 : ┤ X ├
      ╰───╯
@@ -624,14 +759,19 @@ q1 : ┤ X ├
     #[test]
     fn display_arrow_control_below() {
         let mut d = CircuitDrawing::new(2, 0);
-        d.push_box_with_control(Position::Qbit(0), "X", Position::Qbit(1), ControlEnd::Arrow);
+        d.push_box_with_control(
+            DrawPosition::Qbit(0),
+            "X",
+            DrawPosition::Qbit(1),
+            ControlEnd::Arrow,
+        );
         assert_drawing_str_eq(
             &d,
             r#"
      ╭───╮
 q0 : ┤ X ├
      ╰─┬─╯
-q1 : ──▽──
+q1 : ──▼──
 "#,
         );
     }
@@ -640,10 +780,10 @@ q1 : ──▽──
     fn display_target_control_below() {
         let mut d = CircuitDrawing::new(2, 0);
         d.push_box_with_control(
-            Position::Qbit(0),
+            DrawPosition::Qbit(0),
             "X",
-            Position::Qbit(1),
-            ControlEnd::Target,
+            DrawPosition::Qbit(1),
+            ControlEnd::Circle,
         );
         assert_drawing_str_eq(
             &d,
@@ -651,7 +791,7 @@ q1 : ──▽──
      ╭───╮
 q0 : ┤ X ├
      ╰─┬─╯
-q1 : ──⊕──
+q1 : ──●──
 "#,
         );
     }
@@ -676,19 +816,19 @@ q1 : ┤ X ├
     #[test]
     fn display_multi_column() {
         let mut d = CircuitDrawing::new(2, 1);
-        d.push_box(Position::Qbit(0), "H");
+        d.push_box(DrawPosition::Qbit(0), "H");
         d.push_box_with_control(
-            Position::Qbit(1),
+            DrawPosition::Qbit(1),
             "X",
-            Position::Qbit(0),
-            ControlEnd::Target,
+            DrawPosition::Qbit(0),
+            ControlEnd::Circle,
         );
-        d.push_box(Position::Cbit(0), "M");
+        d.push_box(DrawPosition::Cbit(0), "M");
         assert_drawing_str_eq(
             &d,
             r#"
      ╭───╮
-q0 : ┤ H ├──⊕───────
+q0 : ┤ H ├──●───────
      ╰───╯╭─┴─╮
 q1 : ─────┤ X ├─────
           ╰───╯╭───╮

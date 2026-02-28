@@ -4,6 +4,7 @@ use num_traits::Num;
 
 use crate::state_vector::{StateVector, StateVectorOperation};
 
+#[derive(Clone, Debug)]
 pub struct UnitaryGate<T, const N: usize> {
     matrix: Array2<Complex<T>>,
     targets: [usize; N],

@@ -5,10 +5,11 @@ use num_traits::Float;
 use ndarray::array;
 
 use super::unitary_gate::UnitaryGate;
-use crate::complex::{c32, c64};
+use crate::draw::{CircuitDrawing, DrawOperation, DrawPosition};
+use crate::num::{c32, c64};
 use crate::state_vector::{StateVector, StateVectorOperation};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TDaggerGate {
     target: usize,
 }
@@ -16,6 +17,12 @@ pub struct TDaggerGate {
 impl TDaggerGate {
     pub fn new(target: usize) -> Self {
         Self { target }
+    }
+}
+
+impl DrawOperation for TDaggerGate {
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        d.push_box(DrawPosition::Qbit(self.target), "T†");
     }
 }
 
@@ -66,7 +73,7 @@ impl From<TDaggerGate> for UnitaryGate<f64, 1> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::complex::{assert_complex_close, c64};
+    use crate::num::{assert_complex_close, c64};
     use crate::state_vector::StateVector;
 
     #[test]

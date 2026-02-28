@@ -37,12 +37,17 @@ pub use y_gate::YGate;
 pub use z_gate::ZGate;
 
 pub trait Operation:
-    crate::state_vector::StateVectorOperation<f64> + crate::state_vector::StateVectorOperation<f32>
+    crate::state_vector::StateVectorOperation<f64>
+    + crate::state_vector::StateVectorOperation<f32>
+    + crate::draw::DrawOperation
+    + core::fmt::Debug
 {
 }
 
 impl<T> Operation for T where
     T: crate::state_vector::StateVectorOperation<f64>
         + crate::state_vector::StateVectorOperation<f32>
+        + crate::draw::DrawOperation
+        + core::fmt::Debug
 {
 }

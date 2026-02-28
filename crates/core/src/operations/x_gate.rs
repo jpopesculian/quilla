@@ -2,10 +2,11 @@ use alloc::vec;
 use ndarray::array;
 
 use super::unitary_gate::UnitaryGate;
-use crate::complex::{c32, c64};
+use crate::draw::{CircuitDrawing, DrawOperation, DrawPosition};
+use crate::num::{c32, c64};
 use crate::state_vector::{StateVector, StateVectorOperation};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct XGate {
     target: usize,
 }
@@ -13,6 +14,12 @@ pub struct XGate {
 impl XGate {
     pub fn new(target: usize) -> Self {
         Self { target }
+    }
+}
+
+impl DrawOperation for XGate {
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        d.push_box(DrawPosition::Qbit(self.target), "X");
     }
 }
 
@@ -51,7 +58,7 @@ impl From<XGate> for UnitaryGate<f64, 1> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::complex::{assert_complex_close, c64};
+    use crate::num::{assert_complex_close, c64};
     use crate::state_vector::StateVector;
 
     fn basis_state(qubits: usize, index: usize) -> StateVector<f64> {

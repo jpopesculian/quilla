@@ -3,10 +3,11 @@ use ndarray::array;
 use num_traits::Num;
 
 use super::unitary_gate::UnitaryGate;
-use crate::complex::{c32, c64};
+use crate::draw::{CircuitDrawing, DrawOperation, DrawPosition};
+use crate::num::{c32, c64};
 use crate::state_vector::{StateVector, StateVectorOperation};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct HadamardGate {
     target: usize,
 }
@@ -14,6 +15,12 @@ pub struct HadamardGate {
 impl HadamardGate {
     pub fn new(target: usize) -> Self {
         Self { target }
+    }
+}
+
+impl DrawOperation for HadamardGate {
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        d.push_box(DrawPosition::Qbit(self.target), "H");
     }
 }
 
@@ -56,7 +63,7 @@ impl From<HadamardGate> for UnitaryGate<f64, 1> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::complex::{assert_complex_close, c64};
+    use crate::num::{assert_complex_close, c64};
     use crate::state_vector::StateVector;
 
     fn basis_state(qubits: usize, index: usize) -> StateVector<f64> {

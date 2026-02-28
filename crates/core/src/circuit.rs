@@ -1,7 +1,15 @@
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
+use core::fmt;
 
+use bitvec::vec::BitVec;
+use num_traits::Num;
+
+use crate::draw::{CircuitDrawing, DrawOperation};
 use crate::operations::Operation;
+use crate::rand::DynRng;
+use crate::state_vector::{StateVector, StateVectorOperation};
 
 #[derive(Debug, Clone)]
 pub struct Circuit<O> {
@@ -122,6 +130,83 @@ impl DynCircuit {
     pub fn meas(&mut self, qbit: usize, cbit: usize) -> &mut Self {
         self.op(Box::new(crate::operations::Measure::new(qbit, cbit)));
         self
+    }
+}
+
+impl<O, T> StateVectorOperation<T> for Circuit<O>
+where
+    O: StateVectorOperation<T>,
+{
+    fn apply_to(&self, state: &mut StateVector<T>, rng: &mut DynRng) {
+        for op in self.operations() {
+            op.apply_to(state, rng);
+        }
+    }
+}
+
+impl<O> Circuit<O> {
+    pub fn sample_once_with_rng<T>(&self, rng: &mut DynRng) -> BitVec
+    where
+        O: StateVectorOperation<T>,
+        T: Clone + Num,
+    {
+        let mut state = StateVector::<T>::new(self.qbits(), self.cbits());
+        state.apply(self, rng);
+        state.cstate
+    }
+
+    pub fn sample_once<T>(&self) -> BitVec
+    where
+        O: StateVectorOperation<T>,
+        T: Clone + Num,
+    {
+        let mut rng = crate::rand::rng();
+        self.sample_once_with_rng(&mut rng)
+    }
+
+    pub fn sample_with_rng<T>(&self, shots: usize, rng: &mut DynRng) -> BTreeMap<BitVec, usize>
+    where
+        O: StateVectorOperation<T>,
+        T: Clone + Num,
+    {
+        let mut results = BTreeMap::new();
+        for _ in 0..shots {
+            let result = self.sample_once_with_rng(rng);
+            let count = results.entry(result).or_insert(0);
+            *count += 1
+        }
+        results
+    }
+
+    pub fn sample<T>(&self, shots: usize) -> BTreeMap<BitVec, usize>
+    where
+        O: StateVectorOperation<T>,
+        T: Clone + Num,
+    {
+        let mut rng = crate::rand::rng();
+        self.sample_with_rng(shots, &mut rng)
+    }
+}
+
+impl<O> DrawOperation for Circuit<O>
+where
+    O: DrawOperation,
+{
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        for op in self.operations() {
+            op.draw_to(d);
+        }
+    }
+}
+
+impl<O> fmt::Display for Circuit<O>
+where
+    O: DrawOperation,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = CircuitDrawing::new(self.qbits(), self.cbits());
+        d.draw(self);
+        d.fmt(f)
     }
 }
 

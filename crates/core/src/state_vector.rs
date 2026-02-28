@@ -1,11 +1,10 @@
-use alloc::{boxed::Box, collections::BTreeMap};
+use alloc::boxed::Box;
 
 use bitvec::{bitvec, vec::BitVec};
 use ndarray::Array1;
 use num_complex::Complex;
 use num_traits::Num;
 
-use crate::circuit::Circuit;
 use crate::rand::DynRng;
 
 pub trait StateVectorOperation<T> {
@@ -61,59 +60,6 @@ impl<T> StateVector<T> {
     {
         op.apply_to(self, rng);
     }
-
-    pub fn apply_all<O>(&mut self, ops: impl IntoIterator<Item = O>, rng: &mut DynRng)
-    where
-        O: StateVectorOperation<T>,
-    {
-        for op in ops {
-            op.apply_to(self, rng);
-        }
-    }
-}
-
-impl<O> Circuit<O> {
-    pub fn sample_once_with_rng<T>(&self, rng: &mut DynRng) -> BitVec
-    where
-        O: StateVectorOperation<T>,
-        T: Clone + Num,
-    {
-        let mut state = StateVector::<T>::new(self.qbits(), self.cbits());
-        state.apply_all(self.operations(), rng);
-        state.cstate
-    }
-
-    pub fn sample_once<T>(&self) -> BitVec
-    where
-        O: StateVectorOperation<T>,
-        T: Clone + Num,
-    {
-        let mut rng = crate::rand::rng();
-        self.sample_once_with_rng(&mut rng)
-    }
-
-    pub fn sample_with_rng<T>(&self, shots: usize, rng: &mut DynRng) -> BTreeMap<BitVec, usize>
-    where
-        O: StateVectorOperation<T>,
-        T: Clone + Num,
-    {
-        let mut results = BTreeMap::new();
-        for _ in 0..shots {
-            let result = self.sample_once_with_rng(rng);
-            let count = results.entry(result).or_insert(0);
-            *count += 1
-        }
-        results
-    }
-
-    pub fn sample<T>(&self, shots: usize) -> BTreeMap<BitVec, usize>
-    where
-        O: StateVectorOperation<T>,
-        T: Clone + Num,
-    {
-        let mut rng = crate::rand::rng();
-        self.sample_with_rng(shots, &mut rng)
-    }
 }
 
 #[cfg(test)]
@@ -121,6 +67,8 @@ mod tests {
     use super::*;
     use bitvec::bitvec;
     use bitvec::prelude::Lsb0;
+
+    use crate::circuit::Circuit;
 
     #[derive(Clone, Copy)]
     struct SetCBitOp {

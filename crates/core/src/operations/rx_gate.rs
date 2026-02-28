@@ -1,12 +1,15 @@
+use alloc::string::ToString;
 use alloc::vec;
+
 use ndarray::array;
 use num_traits::{Float, Num};
 
 use super::unitary_gate::UnitaryGate;
-use crate::complex::{c32, c64};
+use crate::draw::{CircuitDrawing, DrawOperation, DrawPosition};
+use crate::num::{FloatExt, c32, c64};
 use crate::state_vector::{StateVector, StateVectorOperation};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct RXGate<T> {
     theta: T,
     target: usize,
@@ -15,6 +18,21 @@ pub struct RXGate<T> {
 impl<T> RXGate<T> {
     pub fn new(theta: T, target: usize) -> Self {
         Self { theta, target }
+    }
+}
+
+impl<T> DrawOperation for RXGate<T>
+where
+    T: FloatExt + Copy,
+{
+    fn draw_to(&self, d: &mut CircuitDrawing) {
+        let theta_str = match self.theta.well_known_angle() {
+            Some(angle) => angle.as_str(),
+            None => "θ",
+        };
+        let mut label = "Rx".to_string();
+        label.push_str(theta_str);
+        d.push_box(DrawPosition::Qbit(self.target), &label);
     }
 }
 
@@ -88,7 +106,7 @@ impl From<RXGate<f32>> for UnitaryGate<f64, 1> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::complex::{assert_complex_close, c64};
+    use crate::num::{assert_complex_close, c64};
     use crate::state_vector::StateVector;
 
     #[test]
