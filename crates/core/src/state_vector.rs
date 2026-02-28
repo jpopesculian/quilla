@@ -1,5 +1,5 @@
 use alloc::boxed::Box;
-use alloc::vec;
+use alloc::{vec, vec::Vec};
 
 use bitvec::{bitvec, vec::BitVec};
 use num_complex::Complex;

@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use num_complex::Complex;
 use num_traits::Num;
 
