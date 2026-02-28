@@ -160,7 +160,7 @@ impl<O> Circuit<O> {
         O: StateVectorOperation<T>,
         T: Clone + Num,
     {
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         self.sample_once_with_rng(&mut rng)
     }
 
@@ -183,7 +183,7 @@ impl<O> Circuit<O> {
         O: StateVectorOperation<T>,
         T: Clone + Num,
     {
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         self.sample_with_rng(shots, &mut rng)
     }
 }

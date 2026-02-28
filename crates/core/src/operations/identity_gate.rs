@@ -58,7 +58,7 @@ mod tests {
         let original = state.qstate.clone();
 
         let gate = IdentityGate::new(0);
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         gate.apply_to(&mut state, &mut rng);
 
         assert_complex_close(state.qstate[0], original[0]);
@@ -76,10 +76,10 @@ mod tests {
         let mut unitary_state = StateVector::<f64>::new(1, 0);
         unitary_state.qstate = direct_state.qstate.clone();
 
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         gate.apply_to(&mut direct_state, &mut rng);
 
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         UnitaryGate::<f64, 1>::from(gate).apply_to(&mut unitary_state, &mut rng);
 
         for i in 0..direct_state.qstate.len() {

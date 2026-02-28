@@ -5,15 +5,7 @@ edition = "2024"
 
 [features]
 default = ["std"]
-std = [
-  "bitvec/std",
-  "num-complex/std",
-  "num-traits/std",
-  "rand/std",
-  "rand/std_rng",
-  "rand/sys_rng",
-  "rand/thread_rng",
-]
+std = ["bitvec/std", "num-complex/std", "num-traits/std", "rand/std"]
 
 [dependencies]
 bitvec = { version = "1.0", default-features = false, features = ["alloc"] }

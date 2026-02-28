@@ -80,7 +80,7 @@ mod tests {
     fn hadamard_on_zero_creates_equal_superposition() {
         let mut state = basis_state(1, 0);
         let gate = HadamardGate::new(0);
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
 
         gate.apply_to(&mut state, &mut rng);
 

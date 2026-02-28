@@ -113,7 +113,7 @@ mod tests {
         let mut state = StateVector::<f64>::new(1, 0);
         state.qstate[0] = c64(1.0, 0.0);
         let gate = RXGate::new(core::f64::consts::PI, 0);
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
 
         gate.apply_to(&mut state, &mut rng);
 

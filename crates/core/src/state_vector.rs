@@ -94,7 +94,7 @@ mod tests {
         circuit.op(SetCBitOp::new(0, false));
         circuit.op(SetCBitOp::new(0, true));
 
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         let result = circuit.sample_once_with_rng::<f64>(&mut rng);
 
         assert_eq!(result, bitvec![1]);
@@ -115,7 +115,7 @@ mod tests {
         let mut circuit = Circuit::new(1, 1);
         circuit.op(SetCBitOp::new(0, true));
 
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         let results = circuit.sample_with_rng::<f64>(5, &mut rng);
 
         let expected = bitvec![1];

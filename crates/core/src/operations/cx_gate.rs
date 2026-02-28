@@ -112,7 +112,7 @@ mod tests {
     fn cx_flips_target_when_control_is_one() {
         let mut state = basis_state(2, 2);
         let gate = CXGate::new(1, 0);
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
 
         gate.apply_to(&mut state, &mut rng);
 
@@ -124,7 +124,7 @@ mod tests {
     fn cx_does_not_flip_target_when_control_is_zero() {
         let mut state = basis_state(2, 1);
         let gate = CXGate::new(1, 0);
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
 
         gate.apply_to(&mut state, &mut rng);
 
@@ -145,10 +145,10 @@ mod tests {
         let mut unitary_state = StateVector::<f64>::new(2, 0);
         unitary_state.qstate = direct_state.qstate.clone();
 
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         gate.apply_to(&mut direct_state, &mut rng);
 
-        let mut rng = crate::rand::rng();
+        let mut rng = crate::rand::default_rng();
         UnitaryGate::<f64, 2>::from(gate).apply_to(&mut unitary_state, &mut rng);
 
         for i in 0..direct_state.qstate.len() {
