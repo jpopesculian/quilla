@@ -1,5 +1,4 @@
 use alloc::vec;
-use ndarray::array;
 
 use super::unitary_gate::UnitaryGate;
 use crate::draw::{CircuitDrawing, DrawOperation, DrawPosition};
@@ -30,7 +29,7 @@ impl<T> StateVectorOperation<T> for IdentityGate {
 impl From<IdentityGate> for UnitaryGate<f32, 1> {
     fn from(gate: IdentityGate) -> Self {
         UnitaryGate::new(
-            array![[c32(1., 0.), c32(0., 0.)], [c32(0., 0.), c32(1., 0.)]],
+            vec![c32(1., 0.), c32(0., 0.), c32(0., 0.), c32(1., 0.)],
             [gate.target],
         )
     }
@@ -39,7 +38,7 @@ impl From<IdentityGate> for UnitaryGate<f32, 1> {
 impl From<IdentityGate> for UnitaryGate<f64, 1> {
     fn from(gate: IdentityGate) -> Self {
         UnitaryGate::new(
-            array![[c64(1., 0.), c64(0., 0.)], [c64(0., 0.), c64(1., 0.)]],
+            vec![c64(1., 0.), c64(0., 0.), c64(0., 0.), c64(1., 0.)],
             [gate.target],
         )
     }

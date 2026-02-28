@@ -1,7 +1,6 @@
 use alloc::vec;
 use core::ops::Neg;
 
-use ndarray::array;
 use num_complex::Complex;
 
 use super::unitary_gate::UnitaryGate;
@@ -58,11 +57,23 @@ where
 impl From<CYGate> for UnitaryGate<f32, 2> {
     fn from(gate: CYGate) -> Self {
         UnitaryGate::new(
-            array![
-                [c32(1., 0.), c32(0., 0.), c32(0., 0.), c32(0., 0.)],
-                [c32(0., 0.), c32(1., 0.), c32(0., 0.), c32(0., 0.)],
-                [c32(0., 0.), c32(0., 0.), c32(0., 0.), c32(0., -1.)],
-                [c32(0., 0.), c32(0., 0.), c32(0., 1.), c32(0., 0.)],
+            vec![
+                c32(1., 0.),
+                c32(0., 0.),
+                c32(0., 0.),
+                c32(0., 0.),
+                c32(0., 0.),
+                c32(1., 0.),
+                c32(0., 0.),
+                c32(0., 0.),
+                c32(0., 0.),
+                c32(0., 0.),
+                c32(0., 0.),
+                c32(0., -1.),
+                c32(0., 0.),
+                c32(0., 0.),
+                c32(0., 1.),
+                c32(0., 0.),
             ],
             [gate.control, gate.target],
         )
@@ -72,11 +83,23 @@ impl From<CYGate> for UnitaryGate<f32, 2> {
 impl From<CYGate> for UnitaryGate<f64, 2> {
     fn from(gate: CYGate) -> Self {
         UnitaryGate::new(
-            array![
-                [c64(1., 0.), c64(0., 0.), c64(0., 0.), c64(0., 0.)],
-                [c64(0., 0.), c64(1., 0.), c64(0., 0.), c64(0., 0.)],
-                [c64(0., 0.), c64(0., 0.), c64(0., 0.), c64(0., -1.)],
-                [c64(0., 0.), c64(0., 0.), c64(0., 1.), c64(0., 0.)],
+            vec![
+                c64(1., 0.),
+                c64(0., 0.),
+                c64(0., 0.),
+                c64(0., 0.),
+                c64(0., 0.),
+                c64(1., 0.),
+                c64(0., 0.),
+                c64(0., 0.),
+                c64(0., 0.),
+                c64(0., 0.),
+                c64(0., 0.),
+                c64(0., -1.),
+                c64(0., 0.),
+                c64(0., 0.),
+                c64(0., 1.),
+                c64(0., 0.),
             ],
             [gate.control, gate.target],
         )

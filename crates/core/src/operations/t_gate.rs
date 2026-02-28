@@ -2,8 +2,6 @@ use alloc::vec;
 use num_complex::Complex;
 use num_traits::Float;
 
-use ndarray::array;
-
 use super::unitary_gate::UnitaryGate;
 use crate::draw::{CircuitDrawing, DrawOperation, DrawPosition};
 use crate::num::{c32, c64};
@@ -48,7 +46,7 @@ impl From<TGate> for UnitaryGate<f32, 1> {
     fn from(gate: TGate) -> Self {
         let phase = core::f32::consts::FRAC_1_SQRT_2;
         UnitaryGate::new(
-            array![[c32(1., 0.), c32(0., 0.)], [c32(0., 0.), c32(phase, phase)]],
+            vec![c32(1., 0.), c32(0., 0.), c32(0., 0.), c32(phase, phase)],
             [gate.target],
         )
     }
@@ -58,7 +56,7 @@ impl From<TGate> for UnitaryGate<f64, 1> {
     fn from(gate: TGate) -> Self {
         let phase = core::f64::consts::FRAC_1_SQRT_2;
         UnitaryGate::new(
-            array![[c64(1., 0.), c64(0., 0.)], [c64(0., 0.), c64(phase, phase)]],
+            vec![c64(1., 0.), c64(0., 0.), c64(0., 0.), c64(phase, phase)],
             [gate.target],
         )
     }

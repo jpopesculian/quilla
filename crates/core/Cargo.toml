@@ -7,7 +7,6 @@ edition = "2024"
 default = ["std"]
 std = [
   "bitvec/std",
-  "ndarray/std",
   "num-complex/std",
   "num-traits/std",
   "rand/std",
@@ -18,7 +17,6 @@ std = [
 
 [dependencies]
 bitvec = { version = "1.0", default-features = false, features = ["alloc"] }
-ndarray = { version = "0.17", default-features = false }
 num-complex = { version = "0.4", default-features = false }
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 rand = { version = "0.10", default-features = false }

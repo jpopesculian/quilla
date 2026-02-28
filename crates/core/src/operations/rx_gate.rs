@@ -1,7 +1,6 @@
 use alloc::string::ToString;
 use alloc::vec;
 
-use ndarray::array;
 use num_traits::{Float, Num};
 
 use super::unitary_gate::UnitaryGate;
@@ -72,7 +71,7 @@ impl From<RXGate<f32>> for UnitaryGate<f32, 1> {
         let s = <f32 as Float>::sin(half_theta);
 
         UnitaryGate::new(
-            array![[c32(c, 0.), c32(0., -s)], [c32(0., -s), c32(c, 0.)]],
+            vec![c32(c, 0.), c32(0., -s), c32(0., -s), c32(c, 0.)],
             [gate.target],
         )
     }
@@ -91,7 +90,7 @@ impl From<RXGate<f64>> for UnitaryGate<f64, 1> {
         let s = <f64 as Float>::sin(half_theta);
 
         UnitaryGate::new(
-            array![[c64(c, 0.), c64(0., -s)], [c64(0., -s), c64(c, 0.)]],
+            vec![c64(c, 0.), c64(0., -s), c64(0., -s), c64(c, 0.)],
             [gate.target],
         )
     }

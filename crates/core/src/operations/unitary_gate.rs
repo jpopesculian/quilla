@@ -1,4 +1,3 @@
-use ndarray::Array2;
 use num_complex::Complex;
 use num_traits::Num;
 
@@ -6,13 +5,22 @@ use crate::state_vector::{StateVector, StateVectorOperation};
 
 #[derive(Clone, Debug)]
 pub struct UnitaryGate<T, const N: usize> {
-    matrix: Array2<Complex<T>>,
+    matrix: Vec<Complex<T>>,
     targets: [usize; N],
 }
 
 impl<T, const N: usize> UnitaryGate<T, N> {
-    pub(crate) fn new(matrix: Array2<Complex<T>>, targets: [usize; N]) -> Self {
+    pub(crate) fn new(matrix: Vec<Complex<T>>, targets: [usize; N]) -> Self {
+        assert_eq!(matrix.len(), (1 << N) * (1 << N));
         Self { matrix, targets }
+    }
+
+    #[inline]
+    pub(crate) fn get(&self, i: usize, j: usize) -> Complex<T>
+    where
+        T: Copy,
+    {
+        self.matrix[i * (1 << N) + j]
     }
 }
 
@@ -24,13 +32,10 @@ where
         let target = self.targets[0];
         let bit = 1 << target;
 
-        let row0 = self.matrix.row(0);
-        let row1 = self.matrix.row(1);
-
-        let m00 = row0[0];
-        let m01 = row0[1];
-        let m10 = row1[0];
-        let m11 = row1[1];
+        let m00 = self.get(0, 0);
+        let m01 = self.get(0, 1);
+        let m10 = self.get(1, 0);
+        let m11 = self.get(1, 1);
 
         for i0 in 0..state.qstate.len() {
             if (i0 & bit) != 0 {
@@ -57,30 +62,25 @@ where
         let bit0 = 1 << target0;
         let bit1 = 1 << target1;
 
-        let row0 = self.matrix.row(0);
-        let row1 = self.matrix.row(1);
-        let row2 = self.matrix.row(2);
-        let row3 = self.matrix.row(3);
+        let m00 = self.get(0, 0);
+        let m01 = self.get(0, 1);
+        let m02 = self.get(0, 2);
+        let m03 = self.get(0, 3);
 
-        let m00 = row0[0];
-        let m01 = row0[1];
-        let m02 = row0[2];
-        let m03 = row0[3];
+        let m10 = self.get(1, 0);
+        let m11 = self.get(1, 1);
+        let m12 = self.get(1, 2);
+        let m13 = self.get(1, 3);
 
-        let m10 = row1[0];
-        let m11 = row1[1];
-        let m12 = row1[2];
-        let m13 = row1[3];
+        let m20 = self.get(2, 0);
+        let m21 = self.get(2, 1);
+        let m22 = self.get(2, 2);
+        let m23 = self.get(2, 3);
 
-        let m20 = row2[0];
-        let m21 = row2[1];
-        let m22 = row2[2];
-        let m23 = row2[3];
-
-        let m30 = row3[0];
-        let m31 = row3[1];
-        let m32 = row3[2];
-        let m33 = row3[3];
+        let m30 = self.get(3, 0);
+        let m31 = self.get(3, 1);
+        let m32 = self.get(3, 2);
+        let m33 = self.get(3, 3);
 
         for i00 in 0..state.qstate.len() {
             if (i00 & bit0) != 0 || (i00 & bit1) != 0 {

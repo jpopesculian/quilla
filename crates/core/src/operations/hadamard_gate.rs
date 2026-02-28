@@ -1,5 +1,4 @@
 use alloc::vec;
-use ndarray::array;
 use num_traits::Num;
 
 use super::unitary_gate::UnitaryGate;
@@ -38,9 +37,11 @@ impl From<HadamardGate> for UnitaryGate<f32, 1> {
     fn from(gate: HadamardGate) -> Self {
         let frac_1_sqrt_2 = core::f32::consts::FRAC_1_SQRT_2;
         UnitaryGate::new(
-            array![
-                [c32(frac_1_sqrt_2, 0.), c32(frac_1_sqrt_2, 0.)],
-                [c32(frac_1_sqrt_2, 0.), c32(-frac_1_sqrt_2, 0.)],
+            vec![
+                c32(frac_1_sqrt_2, 0.),
+                c32(frac_1_sqrt_2, 0.),
+                c32(frac_1_sqrt_2, 0.),
+                c32(-frac_1_sqrt_2, 0.),
             ],
             [gate.target],
         )
@@ -51,9 +52,11 @@ impl From<HadamardGate> for UnitaryGate<f64, 1> {
     fn from(gate: HadamardGate) -> Self {
         let frac_1_sqrt_2 = core::f64::consts::FRAC_1_SQRT_2;
         UnitaryGate::new(
-            array![
-                [c64(frac_1_sqrt_2, 0.), c64(frac_1_sqrt_2, 0.)],
-                [c64(frac_1_sqrt_2, 0.), c64(-frac_1_sqrt_2, 0.)],
+            vec![
+                c64(frac_1_sqrt_2, 0.),
+                c64(frac_1_sqrt_2, 0.),
+                c64(frac_1_sqrt_2, 0.),
+                c64(-frac_1_sqrt_2, 0.),
             ],
             [gate.target],
         )

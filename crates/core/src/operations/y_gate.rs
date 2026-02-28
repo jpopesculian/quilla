@@ -1,7 +1,6 @@
 use alloc::vec;
 use core::ops::Neg;
 
-use ndarray::array;
 use num_complex::Complex;
 
 use super::unitary_gate::UnitaryGate;
@@ -51,7 +50,7 @@ where
 impl From<YGate> for UnitaryGate<f32, 1> {
     fn from(gate: YGate) -> Self {
         UnitaryGate::new(
-            array![[c32(0., 0.), c32(0., -1.)], [c32(0., 1.), c32(0., 0.)],],
+            vec![c32(0., 0.), c32(0., -1.), c32(0., 1.), c32(0., 0.)],
             [gate.target],
         )
     }
@@ -60,7 +59,7 @@ impl From<YGate> for UnitaryGate<f32, 1> {
 impl From<YGate> for UnitaryGate<f64, 1> {
     fn from(gate: YGate) -> Self {
         UnitaryGate::new(
-            array![[c64(0., 0.), c64(0., -1.)], [c64(0., 1.), c64(0., 0.)],],
+            vec![c64(0., 0.), c64(0., -1.), c64(0., 1.), c64(0., 0.)],
             [gate.target],
         )
     }

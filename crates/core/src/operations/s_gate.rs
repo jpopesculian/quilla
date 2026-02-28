@@ -1,8 +1,6 @@
 use alloc::vec;
 use core::ops::Neg;
 
-use ndarray::array;
-
 use super::unitary_gate::UnitaryGate;
 use crate::draw::{CircuitDrawing, DrawOperation, DrawPosition};
 use crate::num::{c32, c64};
@@ -44,7 +42,7 @@ where
 impl From<SGate> for UnitaryGate<f32, 1> {
     fn from(gate: SGate) -> Self {
         UnitaryGate::new(
-            array![[c32(1., 0.), c32(0., 0.)], [c32(0., 0.), c32(0., 1.)]],
+            vec![c32(1., 0.), c32(0., 0.), c32(0., 0.), c32(0., 1.)],
             [gate.target],
         )
     }
@@ -53,7 +51,7 @@ impl From<SGate> for UnitaryGate<f32, 1> {
 impl From<SGate> for UnitaryGate<f64, 1> {
     fn from(gate: SGate) -> Self {
         UnitaryGate::new(
-            array![[c64(1., 0.), c64(0., 0.)], [c64(0., 0.), c64(0., 1.)]],
+            vec![c64(1., 0.), c64(0., 0.), c64(0., 0.), c64(0., 1.)],
             [gate.target],
         )
     }

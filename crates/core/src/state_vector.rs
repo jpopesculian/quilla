@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
+use alloc::vec;
 
 use bitvec::{bitvec, vec::BitVec};
-use ndarray::Array1;
 use num_complex::Complex;
 use num_traits::Num;
 
@@ -32,7 +32,7 @@ where
 #[derive(Debug, Clone)]
 pub struct StateVector<T> {
     pub(crate) qbits: usize,
-    pub(crate) qstate: Array1<Complex<T>>,
+    pub(crate) qstate: Vec<Complex<T>>,
     pub(crate) cbits: usize,
     pub(crate) cstate: BitVec,
 }
@@ -42,7 +42,7 @@ impl<T> StateVector<T> {
     where
         T: Clone + Num,
     {
-        let mut qstate = Array1::zeros(1 << qbits);
+        let mut qstate = vec![Complex::new(T::zero(), T::zero()); 1 << qbits];
         if qbits > 0 {
             qstate[0] = Complex::new(T::one(), T::zero());
         }

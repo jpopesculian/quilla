@@ -1,7 +1,6 @@
 use alloc::vec;
 use core::ops::Neg;
 
-use ndarray::array;
 use num_traits::Num;
 
 use super::unitary_gate::UnitaryGate;
@@ -44,7 +43,7 @@ where
 impl From<ZGate> for UnitaryGate<f32, 1> {
     fn from(gate: ZGate) -> Self {
         UnitaryGate::new(
-            array![[c32(1., 0.), c32(0., 0.)], [c32(0., 0.), c32(-1., 0.)],],
+            vec![c32(1., 0.), c32(0., 0.), c32(0., 0.), c32(-1., 0.)],
             [gate.target],
         )
     }
@@ -53,7 +52,7 @@ impl From<ZGate> for UnitaryGate<f32, 1> {
 impl From<ZGate> for UnitaryGate<f64, 1> {
     fn from(gate: ZGate) -> Self {
         UnitaryGate::new(
-            array![[c64(1., 0.), c64(0., 0.)], [c64(0., 0.), c64(-1., 0.)],],
+            vec![c64(1., 0.), c64(0., 0.), c64(0., 0.), c64(-1., 0.)],
             [gate.target],
         )
     }
