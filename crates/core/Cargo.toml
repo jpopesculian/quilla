@@ -6,11 +6,12 @@ edition = "2024"
 [features]
 default = ["std"]
 std = ["bitvec/std", "num-complex/std", "num-traits/std", "rand/std"]
+libm = ["num-complex/libm", "num-traits/libm"]
 
 [dependencies]
 bitvec = { version = "1.0", default-features = false, features = ["alloc"] }
 num-complex = { version = "0.4", default-features = false }
-num-traits = { version = "0.2", default-features = false, features = ["libm"] }
+num-traits = { version = "0.2", default-features = false }
 rand = { version = "0.10", default-features = false }
 
 [dev-dependencies]
