@@ -1,6 +1,8 @@
 mod bitvec;
 pub mod circuit;
+pub mod complex;
 pub mod operation;
+pub mod state_vector;
 
 use wasm_bindgen::prelude::*;
 

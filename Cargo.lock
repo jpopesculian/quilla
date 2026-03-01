@@ -239,6 +239,7 @@ version = "0.1.0"
 dependencies = [
  "bitvec",
  "js-sys",
+ "num-complex",
  "quilla",
  "serde",
  "serde-wasm-bindgen",

@@ -54,6 +54,14 @@ impl<T> StateVector<T> {
         }
     }
 
+    pub fn qbits(&self) -> usize {
+        self.qbits
+    }
+
+    pub fn cbits(&self) -> usize {
+        self.cbits
+    }
+
     pub fn get(&self, bits: &impl BitField) -> &Complex<T> {
         &self.qstate[bits.load::<usize>()]
     }
