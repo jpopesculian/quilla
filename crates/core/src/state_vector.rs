@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use alloc::{vec, vec::Vec};
 
-use bitvec::{bitvec, vec::BitVec};
+use bitvec::{bitvec, field::BitField, vec::BitVec};
 use num_complex::Complex;
 use num_traits::Num;
 
@@ -54,6 +54,10 @@ impl<T> StateVector<T> {
         }
     }
 
+    pub fn get(&self, bits: &impl BitField) -> &Complex<T> {
+        &self.qstate[bits.load::<usize>()]
+    }
+
     pub fn apply<O>(&mut self, op: O, rng: &mut DynRng)
     where
         O: StateVectorOperation<T>,
@@ -86,6 +90,18 @@ mod tests {
         fn apply_to(&self, state: &mut StateVector<T>, _rng: &mut DynRng) {
             state.cstate.set(self.cbit, self.value);
         }
+    }
+
+    #[test]
+    fn get_returns_amplitude_for_basis_state() {
+        use crate::num::{assert_complex_close, c64};
+
+        let mut state = StateVector::<f64>::new(2, 0);
+        // qubit 0 = 0, qubit 1 = 1 → index = 0b10 = 2
+        state.qstate[2] = c64(0.5, 0.3);
+
+        let bits = bitvec![0, 1];
+        assert_complex_close(*state.get(&bits), c64(0.5, 0.3));
     }
 
     #[test]
