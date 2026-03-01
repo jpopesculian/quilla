@@ -1,5 +1,6 @@
 mod bitvec;
 pub mod circuit;
+pub mod circuit_drawing;
 pub mod complex;
 pub mod operation;
 pub mod state_vector;

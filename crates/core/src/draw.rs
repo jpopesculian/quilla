@@ -72,8 +72,8 @@ impl CircuitDrawing {
         self.elements.get(operation * self.wires() + wire)
     }
 
-    pub fn draw(&mut self, op: impl DrawOperation) {
-        op.draw_to(self);
+    pub fn draw(&mut self, operation: impl DrawOperation) {
+        operation.draw_to(self);
     }
 
     pub(crate) fn push_box(&mut self, target: DrawPosition, name: impl ToString) {

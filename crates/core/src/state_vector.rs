@@ -66,11 +66,11 @@ impl<T> StateVector<T> {
         &self.qstate[bits.load::<usize>()]
     }
 
-    pub fn apply<O>(&mut self, op: O, rng: &mut DynRng)
+    pub fn apply<O>(&mut self, operation: O, rng: &mut DynRng)
     where
         O: StateVectorOperation<T>,
     {
-        op.apply_to(self, rng);
+        operation.apply_to(self, rng);
     }
 }
 

@@ -36,9 +36,9 @@ impl StateVector {
         &mut self,
         #[wasm_bindgen(unchecked_param_type = "Operation")] operation: JsValue,
     ) -> Result<(), serde_wasm_bindgen::Error> {
-        let op = Operation::from_value(operation)?;
         let mut rng = quilla::rand::default_rng();
-        self.inner.apply(op, &mut rng);
+        self.inner
+            .apply(Operation::from_value(operation)?, &mut rng);
         Ok(())
     }
 }
