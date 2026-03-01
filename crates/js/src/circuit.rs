@@ -1,10 +1,12 @@
 use js_sys::Map;
-use quilla::DynCircuit;
+use quilla::Circuit as QuillaCircuit;
 use wasm_bindgen::prelude::*;
+
+use crate::operation::Operation;
 
 #[wasm_bindgen]
 pub struct Circuit {
-    inner: DynCircuit,
+    inner: QuillaCircuit<Operation>,
 }
 
 #[wasm_bindgen]
@@ -12,7 +14,7 @@ impl Circuit {
     #[wasm_bindgen(constructor)]
     pub fn new(qbits: usize, cbits: usize) -> Self {
         Self {
-            inner: DynCircuit::new(qbits, cbits),
+            inner: QuillaCircuit::new(qbits, cbits),
         }
     }
 
@@ -24,80 +26,98 @@ impl Circuit {
         self.inner.cbits()
     }
 
+    #[wasm_bindgen(unchecked_return_type = "Operation[]")]
+    pub fn operations(&self) -> Result<Vec<JsValue>, serde_wasm_bindgen::Error> {
+        self.inner
+            .operations()
+            .iter()
+            .map(|op| op.to_value())
+            .collect()
+    }
+
+    pub fn push(
+        &mut self,
+        #[wasm_bindgen(unchecked_param_type = "Operation")] operation: JsValue,
+    ) -> Result<(), serde_wasm_bindgen::Error> {
+        let operation = Operation::from_value(operation)?;
+        self.inner.push(operation);
+        Ok(())
+    }
+
     // Single-qubit gates
 
     pub fn i(&mut self, target: usize) {
-        self.inner.i(target);
+        self.inner.push(Operation::I { target });
     }
 
     pub fn h(&mut self, target: usize) {
-        self.inner.h(target);
+        self.inner.push(Operation::H { target });
     }
 
     pub fn x(&mut self, target: usize) {
-        self.inner.x(target);
+        self.inner.push(Operation::X { target });
     }
 
     pub fn y(&mut self, target: usize) {
-        self.inner.y(target);
+        self.inner.push(Operation::Y { target });
     }
 
     pub fn z(&mut self, target: usize) {
-        self.inner.z(target);
+        self.inner.push(Operation::Z { target });
     }
 
     pub fn s(&mut self, target: usize) {
-        self.inner.s(target);
+        self.inner.push(Operation::S { target });
     }
 
     pub fn sdg(&mut self, target: usize) {
-        self.inner.sdg(target);
+        self.inner.push(Operation::Sdg { target });
     }
 
     pub fn t(&mut self, target: usize) {
-        self.inner.t(target);
+        self.inner.push(Operation::T { target });
     }
 
     pub fn tdg(&mut self, target: usize) {
-        self.inner.tdg(target);
+        self.inner.push(Operation::Tdg { target });
     }
 
     // Two-qubit gates
 
     pub fn cx(&mut self, control: usize, target: usize) {
-        self.inner.cx(control, target);
+        self.inner.push(Operation::CX { control, target });
     }
 
     pub fn cy(&mut self, control: usize, target: usize) {
-        self.inner.cy(control, target);
+        self.inner.push(Operation::CY { control, target });
     }
 
     pub fn cz(&mut self, control: usize, target: usize) {
-        self.inner.cz(control, target);
+        self.inner.push(Operation::CZ { control, target });
     }
 
     pub fn swap(&mut self, first: usize, second: usize) {
-        self.inner.swap(first, second);
+        self.inner.push(Operation::Swap { first, second });
     }
 
     // Parametric gates
 
     pub fn rx(&mut self, theta: f64, target: usize) {
-        self.inner.rx(theta, target);
+        self.inner.push(Operation::RX { theta, target });
     }
 
     pub fn ry(&mut self, theta: f64, target: usize) {
-        self.inner.ry(theta, target);
+        self.inner.push(Operation::RY { theta, target });
     }
 
     pub fn rz(&mut self, theta: f64, target: usize) {
-        self.inner.rz(theta, target);
+        self.inner.push(Operation::RZ { theta, target });
     }
 
     // Measurement
 
     pub fn meas(&mut self, qbit: usize, cbit: usize) {
-        self.inner.meas(qbit, cbit);
+        self.inner.push(Operation::Meas { qbit, cbit });
     }
 
     // Sampling

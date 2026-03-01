@@ -107,8 +107,8 @@ mod tests {
     #[test]
     fn sample_once_with_rng_applies_operations_in_order() {
         let mut circuit = Circuit::new(1, 1);
-        circuit.op(SetCBitOp::new(0, false));
-        circuit.op(SetCBitOp::new(0, true));
+        circuit.push(SetCBitOp::new(0, false));
+        circuit.push(SetCBitOp::new(0, true));
 
         let mut rng = crate::rand::default_rng();
         let result = circuit.sample_once_with_rng::<f64>(&mut rng);
@@ -119,7 +119,7 @@ mod tests {
     #[test]
     fn sample_once_returns_classical_state() {
         let mut circuit = Circuit::new(1, 1);
-        circuit.op(SetCBitOp::new(0, true));
+        circuit.push(SetCBitOp::new(0, true));
 
         let result = circuit.sample_once::<f64>();
 
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn sample_with_rng_accumulates_shot_counts() {
         let mut circuit = Circuit::new(1, 1);
-        circuit.op(SetCBitOp::new(0, true));
+        circuit.push(SetCBitOp::new(0, true));
 
         let mut rng = crate::rand::default_rng();
         let results = circuit.sample_with_rng::<f64>(5, &mut rng);
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn sample_returns_empty_map_for_zero_shots() {
         let mut circuit = Circuit::new(1, 1);
-        circuit.op(SetCBitOp::new(0, true));
+        circuit.push(SetCBitOp::new(0, true));
 
         let results = circuit.sample::<f64>(0);
 

@@ -7,6 +7,7 @@ use crate::draw::{CircuitDrawing, DrawOperation, DrawPosition};
 use crate::num::{FloatExt, c32, c64};
 use crate::state_vector::{StateVector, StateVectorOperation};
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug)]
 pub struct RYGate<T> {
     theta: T,

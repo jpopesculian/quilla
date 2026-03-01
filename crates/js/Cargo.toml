@@ -7,6 +7,12 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-quilla = { path = "../core" }
+quilla = { path = "../core", features = ["serde"] }
 js-sys = "0.3"
 wasm-bindgen = "0.2"
+serde = { version = "1", default-features = false, features = [
+  "std",
+  "derive",
+] }
+ts-rs = "12"
+serde-wasm-bindgen = "0.6.5"

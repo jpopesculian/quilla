@@ -11,5 +11,6 @@ test:
 
 wasm:
 	cargo build --release --target $(TARGET)
+	cargo test export_bindings
 	wasm-bindgen --out-dir $(OUT_DIR) $(WASM_IN)
 	wasm-opt -Oz $(OUT_DIR)/$(CRATE)_bg.wasm -o $(OUT_DIR)/$(CRATE)_bg.wasm

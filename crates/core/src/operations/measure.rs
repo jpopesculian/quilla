@@ -8,6 +8,7 @@ use rand::{
 use crate::draw::{CircuitDrawing, ControlEnd, DrawOperation, DrawPosition};
 use crate::state_vector::{StateVector, StateVectorOperation};
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug)]
 pub struct Measure {
     qbit: usize,

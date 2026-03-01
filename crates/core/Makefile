@@ -2,6 +2,8 @@ define run-cargo
 	cargo $(1)
 	cargo $(1) --no-default-features --features libm
 	cargo $(1) --no-default-features --features std
+	cargo $(1) --no-default-features --features libm,serde
+	cargo $(1) --no-default-features --features std,serde
 endef
 
 check:
