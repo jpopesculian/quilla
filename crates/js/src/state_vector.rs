@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 use crate::bitvec::string_to_bits;
 use crate::complex::Complex;
 use crate::operation::Operation;
+use crate::rand::Rng;
 
 #[wasm_bindgen]
 pub struct StateVector {
@@ -35,10 +36,12 @@ impl StateVector {
     pub fn apply(
         &mut self,
         #[wasm_bindgen(unchecked_param_type = "Operation")] operation: JsValue,
+        rng: Option<Rng>,
     ) -> Result<(), serde_wasm_bindgen::Error> {
-        let mut rng = quilla::rand::default_rng();
-        self.inner
-            .apply(Operation::from_value(operation)?, &mut rng);
+        self.inner.apply(
+            Operation::from_value(operation)?,
+            &mut rng.unwrap_or_default().as_dyn(),
+        );
         Ok(())
     }
 }

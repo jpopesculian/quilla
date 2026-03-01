@@ -18,3 +18,5 @@ ts-rs = "12"
 serde-wasm-bindgen = "0.6"
 bitvec = { version = "1.0", default-features = false }
 num-complex = "0.4"
+rand = { version = "0.10", default-features = false }
+getrandom = { version = "0.4", features = ["wasm_js"] }

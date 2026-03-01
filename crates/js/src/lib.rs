@@ -3,6 +3,7 @@ pub mod circuit;
 pub mod circuit_drawing;
 pub mod complex;
 pub mod operation;
+pub mod rand;
 pub mod state_vector;
 
 use wasm_bindgen::prelude::*;

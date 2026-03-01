@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::bitvec;
 use crate::operation::Operation;
+use crate::rand::Rng;
 
 #[wasm_bindgen]
 pub struct Circuit {
@@ -124,13 +125,19 @@ impl Circuit {
     // Sampling
 
     #[wasm_bindgen(js_name = "sampleOnce", unchecked_return_type = "BitString")]
-    pub fn sample_once(&self) -> String {
-        bitvec::bits_to_string(&self.inner.sample_once::<f64>())
+    pub fn sample_once(&self, rng: Option<Rng>) -> String {
+        bitvec::bits_to_string(
+            &self
+                .inner
+                .sample_once_with_rng::<f64>(&mut rng.unwrap_or_default().as_dyn()),
+        )
     }
 
     #[wasm_bindgen(unchecked_return_type = "Map<BitString, number>")]
-    pub fn sample(&self, shots: Option<u32>) -> Map {
-        let results = self.inner.sample::<f64>(shots.unwrap_or(1024) as usize);
+    pub fn sample(&self, shots: u32, rng: Option<Rng>) -> Map {
+        let results = self
+            .inner
+            .sample_with_rng::<f64>(shots as usize, &mut rng.unwrap_or_default().as_dyn());
         let map = Map::new();
         for (bits, count) in results {
             map.set(
