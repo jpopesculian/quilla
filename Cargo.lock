@@ -237,6 +237,7 @@ dependencies = [
 name = "quilla-js"
 version = "0.1.0"
 dependencies = [
+ "bitvec",
  "js-sys",
  "quilla",
  "serde",

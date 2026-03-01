@@ -1,3 +1,4 @@
+mod bitvec;
 pub mod circuit;
 pub mod operation;
 

@@ -2,6 +2,7 @@ use js_sys::Map;
 use quilla::Circuit as QuillaCircuit;
 use wasm_bindgen::prelude::*;
 
+use crate::bitvec;
 use crate::operation::Operation;
 
 #[wasm_bindgen]
@@ -122,23 +123,20 @@ impl Circuit {
 
     // Sampling
 
-    /// Run the circuit once and return the classical bit register as an array of 0/1 values.
-    pub fn sample_once(&self) -> Vec<u8> {
-        self.inner
-            .sample_once::<f64>()
-            .iter()
-            .map(|b| *b as u8)
-            .collect()
+    #[wasm_bindgen(js_name = "sampleOnce", unchecked_return_type = "BitString")]
+    pub fn sample_once(&self) -> String {
+        bitvec::bits_to_string(&self.inner.sample_once::<f64>())
     }
 
-    /// Run the circuit `shots` times and return a `Map<string, number>` from
-    /// bit-string (e.g. `"01"`) to occurrence count.
-    pub fn sample(&self, shots: usize) -> Map {
-        let results = self.inner.sample::<f64>(shots);
+    #[wasm_bindgen(unchecked_return_type = "Map<BitString, number>")]
+    pub fn sample(&self, shots: Option<u32>) -> Map {
+        let results = self.inner.sample::<f64>(shots.unwrap_or(1024) as usize);
         let map = Map::new();
         for (bits, count) in results {
-            let key: String = bits.iter().map(|b| if *b { '1' } else { '0' }).collect();
-            map.set(&JsValue::from_str(&key), &JsValue::from_f64(count as f64));
+            map.set(
+                &JsValue::from(bitvec::bits_to_string(&bits)),
+                &JsValue::from(count),
+            );
         }
         map
     }
