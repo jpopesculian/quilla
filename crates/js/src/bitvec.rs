@@ -25,3 +25,20 @@ impl fmt::Display for InvalidBitString {
 }
 
 impl std::error::Error for InvalidBitString {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn roundtrip() {
+        for s in ["", "0", "1", "0101", "110"] {
+            assert_eq!(bits_to_string(&string_to_bits(s).unwrap()), s);
+        }
+    }
+
+    #[test]
+    fn invalid_char_errors() {
+        assert!(string_to_bits("01x0").is_err());
+    }
+}

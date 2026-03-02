@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 quilla = { path = "../core", features = ["serde"] }
@@ -20,3 +20,6 @@ bitvec = { version = "1.0", default-features = false }
 num-complex = "0.4"
 rand = { version = "0.10", default-features = false }
 getrandom = { version = "0.4", features = ["wasm_js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

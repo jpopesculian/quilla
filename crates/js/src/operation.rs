@@ -71,3 +71,45 @@ impl DrawOperation for Operation {
         self.as_dyn().draw_to(d);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bitvec::prelude::*;
+    use quilla::{StateVector, rand::default_rng};
+
+    fn re(state: &StateVector<f64>, bits: &bitvec::vec::BitVec) -> f64 {
+        state.get(bits).re
+    }
+
+    #[test]
+    fn x_flips_zero_to_one() {
+        let mut state = StateVector::<f64>::new(1, 0);
+        let mut rng = default_rng();
+        Operation::X { target: 0 }.apply_to(&mut state, &mut rng);
+        assert!((re(&state, &bitvec![0])).abs() < 1e-10);
+        assert!((re(&state, &bitvec![1]) - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn cx_flips_target_when_control_set() {
+        // Start in |10⟩: bit 0 = 0, bit 1 = 1 → index 2
+        let mut state = StateVector::<f64>::new(2, 0);
+        let mut rng = default_rng();
+        Operation::X { target: 1 }.apply_to(&mut state, &mut rng);
+        Operation::CX { control: 1, target: 0 }.apply_to(&mut state, &mut rng);
+        // Result should be |11⟩: bit 0 = 1, bit 1 = 1 → index 3
+        assert!((re(&state, &bitvec![1, 1]) - 1.0).abs() < 1e-10);
+        assert!((re(&state, &bitvec![0, 1])).abs() < 1e-10);
+    }
+
+    #[test]
+    fn h_creates_superposition() {
+        let mut state = StateVector::<f64>::new(1, 0);
+        let mut rng = default_rng();
+        Operation::H { target: 0 }.apply_to(&mut state, &mut rng);
+        let expected = 1.0 / std::f64::consts::SQRT_2;
+        assert!((re(&state, &bitvec![0]) - expected).abs() < 1e-10);
+        assert!((re(&state, &bitvec![1]) - expected).abs() < 1e-10);
+    }
+}

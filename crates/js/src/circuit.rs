@@ -153,3 +153,45 @@ impl Circuit {
         self.inner.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rand::Rng;
+
+    #[test]
+    fn dimensions() {
+        let c = Circuit::new(3, 2);
+        assert_eq!(c.qbits(), 3);
+        assert_eq!(c.cbits(), 2);
+    }
+
+    #[test]
+    fn x_then_measure_always_gives_one() {
+        let mut c = Circuit::new(1, 1);
+        c.x(0);
+        c.meas(0, 0);
+        assert_eq!(c.sample_once(Some(Rng::seeded(0.0))), "1");
+    }
+
+    #[test]
+    fn identity_then_measure_always_gives_zero() {
+        let mut c = Circuit::new(1, 1);
+        c.i(0);
+        c.meas(0, 0);
+        assert_eq!(c.sample_once(Some(Rng::seeded(0.0))), "0");
+    }
+
+    #[test]
+    fn bell_state_bits_always_equal() {
+        let mut c = Circuit::new(2, 2);
+        c.h(0);
+        c.cx(0, 1);
+        c.meas(0, 0);
+        c.meas(1, 1);
+        for seed in [0.0, 1.0, 2.0, 3.0, 99.0] {
+            let result = c.sample_once(Some(Rng::seeded(seed)));
+            assert!(result == "00" || result == "11", "unexpected result: {result}");
+        }
+    }
+}
