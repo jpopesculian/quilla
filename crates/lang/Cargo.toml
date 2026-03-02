@@ -1,0 +1,13 @@
+[package]
+name = "quilla-lang"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["std"]
+std = ["nom/std"]
+libm = ["dep:libm"]
+
+[dependencies]
+libm = { version = "0.2", optional = true }
+nom = { version = "8", default-features = false, features = ["alloc"] }
