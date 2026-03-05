@@ -362,6 +362,7 @@ dependencies = [
  "js-sys",
  "num-complex",
  "quilla",
+ "quilla-lang",
  "rand",
  "serde",
  "serde-wasm-bindgen",

@@ -2,6 +2,7 @@ mod bitvec;
 pub mod circuit;
 pub mod circuit_drawing;
 pub mod complex;
+pub mod lang;
 pub mod operation;
 pub mod rand;
 pub mod state_vector;
