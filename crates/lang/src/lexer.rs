@@ -9,6 +9,7 @@ use nom::{
 
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::str::Utf8Error;
 
 use crate::num::Num;
 use crate::span::{Span, Spanned};
@@ -16,22 +17,29 @@ use crate::token::{Symbol, Token};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LexerError {
-    InvalidUtf8,
-    InvalidNumber { raw: String },
-    UnexpectedChar { ch: char },
+    InvalidUtf8(Utf8Error),
+    InvalidNumber(String),
+    UnexpectedChar(char),
 }
 
 impl core::fmt::Display for LexerError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            LexerError::InvalidUtf8 => write!(f, "invalid UTF-8"),
-            LexerError::InvalidNumber { raw } => write!(f, "invalid number '{raw}'"),
-            LexerError::UnexpectedChar { ch } => write!(f, "unexpected character '{ch}'"),
+            LexerError::InvalidUtf8(_) => write!(f, "invalid utf-8"),
+            LexerError::InvalidNumber(raw) => write!(f, "invalid number '{raw}'"),
+            LexerError::UnexpectedChar(ch) => write!(f, "unexpected character '{ch}'"),
         }
     }
 }
 
-impl core::error::Error for LexerError {}
+impl core::error::Error for LexerError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::InvalidUtf8(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 pub type Error = Spanned<LexerError>;
 
@@ -71,13 +79,13 @@ impl Lexer {
             Err(e) if !self.eof => {
                 core::str::from_utf8(&self.buffer[..e.valid_up_to()]).map_err(|_| {
                     Spanned::new(
-                        LexerError::InvalidUtf8,
+                        LexerError::InvalidUtf8(e),
                         utf8_error_span(self.offset, self.buffer.len(), e),
                     )
                 })
             }
             Err(e) => Err(Spanned::new(
-                LexerError::InvalidUtf8,
+                LexerError::InvalidUtf8(e),
                 utf8_error_span(self.offset, self.buffer.len(), e),
             )),
         }
@@ -153,7 +161,7 @@ impl Lexer {
                     start: self.offset,
                     end: self.offset + ch.len_utf8(),
                 };
-                Err(Spanned::new(LexerError::UnexpectedChar { ch }, span))
+                Err(Spanned::new(LexerError::UnexpectedChar(ch), span))
             }
         }
     }
@@ -228,15 +236,11 @@ fn make_token(parsed: Parsed<'_>, span: Span) -> Result<Token, Spanned<LexerErro
             if s.contains('.') {
                 s.parse::<f64>()
                     .map(|f| Token::num(Num::Float(f), span))
-                    .map_err(|_| Spanned::new(LexerError::InvalidNumber {
-                        raw: s.to_string(),
-                    }, span))
+                    .map_err(|_| Spanned::new(LexerError::InvalidNumber(s.to_string()), span))
             } else {
                 s.parse::<i64>()
                     .map(|i| Token::num(Num::Int(i), span))
-                    .map_err(|_| Spanned::new(LexerError::InvalidNumber {
-                        raw: s.to_string(),
-                    }, span))
+                    .map_err(|_| Spanned::new(LexerError::InvalidNumber(s.to_string()), span))
             }
         }
         Parsed::Symbol(sym) => Ok(Token::symbol(sym, span)),
@@ -387,7 +391,7 @@ mod tests {
         assert!(matches!(
             lexer.next_token(),
             Err(Spanned {
-                inner: LexerError::UnexpectedChar { ch: '@' },
+                inner: LexerError::UnexpectedChar('@'),
                 span: Span { start: 0, end: 1 },
             })
         ));

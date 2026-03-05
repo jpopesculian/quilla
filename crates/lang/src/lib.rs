@@ -4,6 +4,7 @@ extern crate alloc;
 
 pub mod expr;
 pub mod func;
+pub mod instruction;
 pub mod lexer;
 pub mod num;
 pub mod parse;

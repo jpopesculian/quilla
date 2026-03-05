@@ -21,7 +21,14 @@ impl core::fmt::Display for FuncParseError {
     }
 }
 
-impl core::error::Error for FuncParseError {}
+impl core::error::Error for FuncParseError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::InvalidArg(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 /// A streaming parser that groups `ExprParseItem`s into `Func` values.
 ///
@@ -81,7 +88,10 @@ impl FuncParser {
         let ident = match exprs.next() {
             Some(Expr::Ident(s)) => s,
             Some(expr) => {
-                return Err(Spanned::new(FuncParseError::ExpectedIdent, expr_span(&expr)));
+                return Err(Spanned::new(
+                    FuncParseError::ExpectedIdent,
+                    expr_span(&expr),
+                ));
             }
             None => return Ok(None),
         };
@@ -104,7 +114,10 @@ impl FuncParser {
                             exprs: alloc::vec![Expr::Op(op), next],
                             rparen: Spanned::new(RParen, next_span),
                         },
-                        Span { start: op_span.start, end: next_span.end },
+                        Span {
+                            start: op_span.start,
+                            end: next_span.end,
+                        },
                     )
                 }
                 expr => {

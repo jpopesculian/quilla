@@ -1,7 +1,8 @@
 use alloc::vec::Vec;
 
 use crate::expr::{ExprParseError, ExprParser};
-use crate::func::{Func, FuncParseError, FuncParser};
+use crate::func::{FuncParseError, FuncParser};
+use crate::instruction::{Instruction, InstructionError};
 use crate::lexer::{Lexer, LexerError};
 use crate::span::Spanned;
 
@@ -10,6 +11,7 @@ pub enum ParseError {
     Lex(LexerError),
     Expr(ExprParseError),
     Func(FuncParseError),
+    Instruction(InstructionError),
 }
 
 impl core::fmt::Display for ParseError {
@@ -18,17 +20,28 @@ impl core::fmt::Display for ParseError {
             ParseError::Lex(e) => write!(f, "{e}"),
             ParseError::Expr(e) => write!(f, "{e}"),
             ParseError::Func(e) => write!(f, "{e}"),
+            ParseError::Instruction(e) => write!(f, "{e}"),
         }
     }
 }
 
-impl core::error::Error for ParseError {}
+impl core::error::Error for ParseError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            ParseError::Lex(e) => Some(e),
+            ParseError::Expr(e) => Some(e),
+            ParseError::Func(e) => Some(e),
+            ParseError::Instruction(e) => Some(e),
+        }
+    }
+}
 
-/// Parse a complete `&str` into a list of [`Func`]s.
+/// Parse a complete `&str` into a list of [`Instruction`]s.
 ///
-/// Runs the lexer, expression parser, and function parser in sequence,
-/// returning all functions found or the first error encountered.
-pub fn parse(input: &str) -> Result<Vec<Func>, Spanned<ParseError>> {
+/// Runs the lexer, expression parser, function parser, and instruction
+/// conversion in sequence, returning all instructions found or the first
+/// error encountered.
+pub fn parse(input: &str) -> Result<Vec<Spanned<Instruction>>, Spanned<ParseError>> {
     let mut lexer = Lexer::new();
     lexer.feed(input.as_bytes());
     lexer.close();
@@ -51,20 +64,21 @@ pub fn parse(input: &str) -> Result<Vec<Func>, Spanned<ParseError>> {
     }
     func_parser.close();
 
-    let mut funcs = Vec::new();
+    let mut instrs = Vec::new();
     while let Some(func) = func_parser
         .next_func()
         .map_err(|e| Spanned::new(ParseError::Func(e.inner), e.span))?
     {
-        funcs.push(func);
+        let instr = Spanned::<Instruction>::try_from(func)
+            .map_err(|e| Spanned::new(ParseError::Instruction(e.inner), e.span))?;
+        instrs.push(instr);
     }
-    Ok(funcs)
+    Ok(instrs)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::num::Num;
 
     #[test]
     fn test_empty() {
@@ -73,18 +87,17 @@ mod tests {
 
     #[test]
     fn test_single_func() {
-        let funcs = parse("h 0\n").unwrap();
-        assert_eq!(funcs.len(), 1);
-        assert_eq!(funcs[0].ident.inner, "h");
-        assert!(matches!(funcs[0].args[0].inner, Num::Int(0)));
+        let instrs = parse("h 0\n").unwrap();
+        assert_eq!(instrs.len(), 1);
+        assert!(matches!(instrs[0].inner, Instruction::H { target: 0 }));
     }
 
     #[test]
     fn test_multiple_funcs() {
-        let funcs = parse("h 0\ncx 0 1\n").unwrap();
-        assert_eq!(funcs.len(), 2);
-        assert_eq!(funcs[0].ident.inner, "h");
-        assert_eq!(funcs[1].ident.inner, "cx");
+        let instrs = parse("h 0\ncx 0 1\n").unwrap();
+        assert_eq!(instrs.len(), 2);
+        assert!(matches!(instrs[0].inner, Instruction::H { .. }));
+        assert!(matches!(instrs[1].inner, Instruction::CX { .. }));
     }
 
     #[test]
@@ -111,6 +124,15 @@ mod tests {
         assert!(matches!(
             err.inner,
             ParseError::Func(FuncParseError::InvalidArg(_))
+        ));
+    }
+
+    #[test]
+    fn test_instruction_error() {
+        let err = parse("foo 0\n").unwrap_err();
+        assert!(matches!(
+            err.inner,
+            ParseError::Instruction(InstructionError::UnknownGate(_))
         ));
     }
 }
