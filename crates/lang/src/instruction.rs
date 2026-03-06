@@ -165,7 +165,7 @@ impl TryFrom<Func> for Spanned<Instruction> {
                     target: as_index(&args[1])?,
                 }
             }
-            "meas" => {
+            "meas" | "m" => {
                 check_argc(args, 2, func_span)?;
                 Instruction::Meas {
                     qbit: as_index(&args[0])?,

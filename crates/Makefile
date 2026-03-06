@@ -9,3 +9,6 @@ check:
 
 test:
 	$(call run-make,test)
+
+wasm:
+	make -C js wasm
