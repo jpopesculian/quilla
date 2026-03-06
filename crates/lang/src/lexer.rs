@@ -22,6 +22,16 @@ pub enum LexerError {
     UnexpectedChar(char),
 }
 
+impl LexerError {
+    #[inline]
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            Self::InvalidUtf8(_) => false, // can't continue if we can't decode input
+            _ => true,
+        }
+    }
+}
+
 impl core::fmt::Display for LexerError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -108,7 +118,16 @@ impl Lexer {
 
             // Skip line comments: -- ... <newline>. The newline is NOT consumed
             // so it can still be emitted as a token.
-            if self.buffer.starts_with(b"--") {
+            if !self.buffer.is_empty() && self.buffer[0] == b'-' {
+                if self.buffer.len() < 2 {
+                    if self.eof {
+                        break;
+                    } else {
+                        return Ok(None); // not a comment, but maybe more data will clarify
+                    }
+                } else if self.buffer[1] != b'-' {
+                    break; // not a comment
+                }
                 match self.buffer.iter().position(|&b| b == b'\n') {
                     Some(nl) => {
                         self.buffer.drain(..nl);
@@ -161,6 +180,8 @@ impl Lexer {
                     start: self.offset,
                     end: self.offset + ch.len_utf8(),
                 };
+                self.buffer.drain(..ch.len_utf8());
+                self.offset += ch.len_utf8();
                 Err(Spanned::new(LexerError::UnexpectedChar(ch), span))
             }
         }
@@ -446,6 +467,23 @@ mod tests {
                 Token::symbol(Symbol::Newline, Span { start: 18, end: 19 }),
                 Token::ident("x".into(), Span { start: 19, end: 20 }),
             ]
+        );
+    }
+
+    #[test]
+    fn test_unclosed_comment() {
+        let mut lexer = Lexer::new();
+        lexer.feed(b"-");
+        assert_eq!(lexer.next_token().unwrap(), None);
+        lexer.feed(b"- comment continues\nx");
+        lexer.close();
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(Token::symbol(Symbol::Newline, Span { start: 20, end: 21 }))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(Token::ident("x".into(), Span { start: 21, end: 22 }))
         );
     }
 }
