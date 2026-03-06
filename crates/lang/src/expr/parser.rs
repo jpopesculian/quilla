@@ -59,13 +59,13 @@ impl ExprParser {
     pub fn next_expr(&mut self) -> Result<Option<ExprParseItem>, Spanned<ExprParseError>> {
         loop {
             let Some(token) = self.tokens.pop_front() else {
-                if self.eof {
-                    if let Some((lparen_span, _)) = self.stack.pop() {
-                        return Err(Spanned::new(
-                            ExprParseError::UnclosedParenthesis,
-                            lparen_span,
-                        ));
-                    }
+                if self.eof
+                    && let Some((lparen_span, _)) = self.stack.pop()
+                {
+                    return Err(Spanned::new(
+                        ExprParseError::UnclosedParenthesis,
+                        lparen_span,
+                    ));
                 }
                 return Ok(None);
             };
