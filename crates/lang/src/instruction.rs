@@ -4,7 +4,7 @@ use crate::func::Func;
 use crate::num::Num;
 use crate::span::{Span, Spanned};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Instruction {
     H { target: usize },
     I { target: usize },
@@ -222,15 +222,20 @@ mod tests {
     use crate::parse::parse;
 
     fn parse_one(input: &str) -> Spanned<Instruction> {
-        let mut instrs = parse(input).unwrap();
-        assert_eq!(instrs.len(), 1);
-        instrs.remove(0)
+        let mut results = parse(input);
+        assert_eq!(results.len(), 1);
+        let item = results.remove(0);
+        item.map(|r| r.expect("expected Ok instruction"))
     }
 
     fn parse_err(input: &str) -> Spanned<InstructionError> {
-        let err = parse(input).unwrap_err();
-        let crate::parse::ParseError::Instruction(e) = err.inner else {
-            panic!("expected instruction error, got {:?}", err.inner);
+        let results = parse(input);
+        let err = results
+            .into_iter()
+            .find(|r| r.inner.is_err())
+            .expect("expected an error");
+        let crate::parse::ParseError::Instruction(e) = err.inner.unwrap_err() else {
+            panic!("expected instruction error");
         };
         Spanned::new(e, err.span)
     }

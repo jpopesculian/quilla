@@ -11,4 +11,6 @@ pub mod parse;
 pub mod span;
 pub mod token;
 
+pub use instruction::Instruction;
 pub use parse::{ParseError, parse};
+pub use span::{Span, Spanned};

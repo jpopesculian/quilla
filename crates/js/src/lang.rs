@@ -1,5 +1,4 @@
-use quilla_lang::instruction::Instruction;
-use quilla_lang::span::Spanned;
+use quilla_lang::{Instruction, ParseError, Spanned};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use wasm_bindgen::prelude::*;
@@ -13,16 +12,17 @@ pub struct Span {
     end: usize,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
-pub struct ParsedOperation {
-    operation: Operation,
+pub struct ParseItem {
+    #[serde(flatten)]
+    result: ParseResult,
     span: Span,
 }
 
-impl From<Spanned<Instruction>> for ParsedOperation {
-    fn from(spanned: Spanned<Instruction>) -> Self {
-        let operation = match spanned.inner {
+impl From<Instruction> for Operation {
+    fn from(instruction: Instruction) -> Self {
+        match instruction {
             Instruction::H { target } => Operation::H { target },
             Instruction::I { target } => Operation::I { target },
             Instruction::X { target } => Operation::X { target },
@@ -40,24 +40,40 @@ impl From<Spanned<Instruction>> for ParsedOperation {
             Instruction::RY { theta, target } => Operation::RY { theta, target },
             Instruction::RZ { theta, target } => Operation::RZ { theta, target },
             Instruction::Meas { qbit, cbit } => Operation::Meas { qbit, cbit },
-        };
-        let span = Span {
-            start: spanned.span.start,
-            end: spanned.span.end,
-        };
-        ParsedOperation { operation, span }
+        }
     }
 }
 
-#[wasm_bindgen(unchecked_return_type = "ParsedOperation[]")]
-pub fn parse(input: &str) -> Result<Vec<JsValue>, JsValue> {
-    let instrs = quilla_lang::parse(input).map_err(|e| JsValue::from_str(&e.to_string()))?;
-    instrs
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum ParseResult {
+    Operation(Operation),
+    Error(String),
+}
+
+impl From<Spanned<Result<Instruction, ParseError>>> for ParseItem {
+    fn from(spanned: Spanned<Result<Instruction, quilla_lang::parse::ParseError>>) -> Self {
+        ParseItem {
+            result: match spanned.inner {
+                Ok(instr) => ParseResult::Operation(Operation::from(instr)),
+                Err(e) => ParseResult::Error(e.to_string()),
+            },
+            span: Span {
+                start: spanned.span.start,
+                end: spanned.span.end,
+            },
+        }
+    }
+}
+
+#[wasm_bindgen(unchecked_return_type = "ParsedItem[]")]
+pub fn parse(input: &str) -> Result<Vec<JsValue>, JsError> {
+    quilla_lang::parse(input)
         .into_iter()
         .map(|spanned| {
-            ParsedOperation::from(spanned)
-                .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
-                .map_err(|e| JsValue::from_str(&e.to_string()))
+            Ok(ParseItem::from(spanned)
+                .serialize(&serde_wasm_bindgen::Serializer::json_compatible())?)
         })
         .collect()
 }

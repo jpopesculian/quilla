@@ -14,6 +14,13 @@ impl<T> Spanned<T> {
     pub fn new(inner: T, span: Span) -> Self {
         Self { inner, span }
     }
+
+    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Spanned<U> {
+        Spanned {
+            inner: f(self.inner),
+            span: self.span,
+        }
+    }
 }
 
 impl<T> core::fmt::Display for Spanned<T>

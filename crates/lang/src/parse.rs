@@ -36,44 +36,62 @@ impl core::error::Error for ParseError {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum ParseItem {
+    Instruction(Instruction),
+    Error(ParseError),
+}
+
 /// Parse a complete `&str` into a list of [`Instruction`]s.
 ///
 /// Runs the lexer, expression parser, function parser, and instruction
 /// conversion in sequence, returning all instructions found or the first
 /// error encountered.
-pub fn parse(input: &str) -> Result<Vec<Spanned<Instruction>>, Spanned<ParseError>> {
+pub fn parse(input: &str) -> Vec<Spanned<Result<Instruction, ParseError>>> {
+    let mut results = Vec::new();
+
     let mut lexer = Lexer::new();
     lexer.feed(input.as_bytes());
     lexer.close();
 
     let mut expr_parser = ExprParser::new();
-    while let Some(token) = lexer
-        .next_token()
-        .map_err(|e| Spanned::new(ParseError::Lex(e.inner), e.span))?
-    {
-        expr_parser.feed(token);
+    loop {
+        match lexer.next_token() {
+            Ok(Some(token)) => expr_parser.feed(token),
+            Ok(None) => break,
+            Err(err) => {
+                let is_recoverable = err.inner.is_recoverable();
+                results.push(err.map(ParseError::Lex).map(Err));
+                if !is_recoverable {
+                    break;
+                }
+            }
+        }
     }
     expr_parser.close();
 
     let mut func_parser = FuncParser::new();
-    while let Some(item) = expr_parser
-        .next_expr()
-        .map_err(|e| Spanned::new(ParseError::Expr(e.inner), e.span))?
-    {
-        func_parser.feed(item);
+    loop {
+        match expr_parser.next_expr() {
+            Ok(Some(item)) => func_parser.feed(item),
+            Ok(None) => break,
+            Err(err) => results.push(err.map(ParseError::Expr).map(Err)),
+        }
     }
     func_parser.close();
 
-    let mut instrs = Vec::new();
-    while let Some(func) = func_parser
-        .next_func()
-        .map_err(|e| Spanned::new(ParseError::Func(e.inner), e.span))?
-    {
-        let instr = Spanned::<Instruction>::try_from(func)
-            .map_err(|e| Spanned::new(ParseError::Instruction(e.inner), e.span))?;
-        instrs.push(instr);
+    loop {
+        match func_parser.next_func() {
+            Ok(Some(func)) => match Spanned::<Instruction>::try_from(func) {
+                Ok(instr) => results.push(instr.map(Ok)),
+                Err(err) => results.push(err.map(ParseError::Instruction).map(Err)),
+            },
+            Ok(None) => break,
+            Err(err) => results.push(err.map(ParseError::Func).map(Err)),
+        }
     }
-    Ok(instrs)
+
+    results
 }
 
 #[cfg(test)]
@@ -82,57 +100,104 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        assert_eq!(parse("").unwrap().len(), 0);
+        assert_eq!(parse("").len(), 0);
     }
 
     #[test]
     fn test_single_func() {
-        let instrs = parse("h 0\n").unwrap();
-        assert_eq!(instrs.len(), 1);
-        assert!(matches!(instrs[0].inner, Instruction::H { target: 0 }));
+        let results = parse("h 0\n");
+        assert_eq!(results.len(), 1);
+        assert!(matches!(results[0].inner, Ok(Instruction::H { target: 0 })));
     }
 
     #[test]
     fn test_multiple_funcs() {
-        let instrs = parse("h 0\ncx 0 1\n").unwrap();
-        assert_eq!(instrs.len(), 2);
-        assert!(matches!(instrs[0].inner, Instruction::H { .. }));
-        assert!(matches!(instrs[1].inner, Instruction::CX { .. }));
+        let results = parse("h 0\ncx 0 1\n");
+        assert_eq!(results.len(), 2);
+        assert!(matches!(results[0].inner, Ok(Instruction::H { .. })));
+        assert!(matches!(results[1].inner, Ok(Instruction::CX { .. })));
     }
 
     #[test]
     fn test_lex_error() {
-        let err = parse("h @\n").unwrap_err();
+        let results = parse("h @\n");
+        let err = results.iter().find(|r| r.inner.is_err()).unwrap();
         assert!(matches!(
             err.inner,
-            ParseError::Lex(LexerError::UnexpectedChar { .. })
+            Err(ParseError::Lex(LexerError::UnexpectedChar { .. }))
         ));
     }
 
     #[test]
     fn test_expr_error() {
-        let err = parse("h (0\n").unwrap_err();
+        let results = parse("h (0\n");
+        let err = results.iter().find(|r| r.inner.is_err()).unwrap();
         assert!(matches!(
             err.inner,
-            ParseError::Expr(ExprParseError::UnclosedParenthesis)
+            Err(ParseError::Expr(ExprParseError::UnclosedParenthesis))
         ));
     }
 
     #[test]
     fn test_func_error() {
-        let err = parse("rx foo\n").unwrap_err();
+        let results = parse("rx foo\n");
+        let err = results.iter().find(|r| r.inner.is_err()).unwrap();
         assert!(matches!(
             err.inner,
-            ParseError::Func(FuncParseError::InvalidArg(_))
+            Err(ParseError::Func(FuncParseError::InvalidArg(_)))
         ));
     }
 
     #[test]
     fn test_instruction_error() {
-        let err = parse("foo 0\n").unwrap_err();
+        let results = parse("foo 0\n");
+        let err = results.iter().find(|r| r.inner.is_err()).unwrap();
         assert!(matches!(
             err.inner,
-            ParseError::Instruction(InstructionError::UnknownGate(_))
+            Err(ParseError::Instruction(InstructionError::UnknownGate(_)))
+        ));
+    }
+
+    #[test]
+    fn test_unexpected_rparen() {
+        let results = parse("h )\n");
+        let err = results.iter().find(|r| r.inner.is_err()).unwrap();
+        assert!(matches!(
+            err.inner,
+            Err(ParseError::Expr(ExprParseError::UnexpectedRParen))
+        ));
+    }
+
+    #[test]
+    fn test_expected_ident() {
+        let results = parse("0 1\n");
+        let err = results.iter().find(|r| r.inner.is_err()).unwrap();
+        assert!(matches!(
+            err.inner,
+            Err(ParseError::Func(FuncParseError::ExpectedIdent))
+        ));
+    }
+
+    #[test]
+    fn test_wrong_arg_count() {
+        let results = parse("h 0 1\n");
+        let err = results.iter().find(|r| r.inner.is_err()).unwrap();
+        assert!(matches!(
+            err.inner,
+            Err(ParseError::Instruction(InstructionError::WrongArgCount {
+                expected: 1,
+                got: 2
+            }))
+        ));
+    }
+
+    #[test]
+    fn test_invalid_index() {
+        let results = parse("h 1.5\n");
+        let err = results.iter().find(|r| r.inner.is_err()).unwrap();
+        assert!(matches!(
+            err.inner,
+            Err(ParseError::Instruction(InstructionError::InvalidIndex))
         ));
     }
 }
