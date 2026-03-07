@@ -25,12 +25,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli
+        uses: taiki-e/install-action@wasm-bindgen
 
       - name: Install wasm-opt
-        run: |
-          npm install -g binaryen
+        uses: taiki-e/install-action@wasm-opt
 
       - name: Build wasm
         run: make -C crates/js wasm
