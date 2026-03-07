@@ -31,7 +31,7 @@ jobs:
         uses: taiki-e/install-action@wasm-bindgen
 
       - name: Install wasm-opt
-        uses: taiki-e/install-action@wasm-opt
+        run: npm install -g binaryen
 
       - name: Build wasm
         run: make -C crates/js wasm
