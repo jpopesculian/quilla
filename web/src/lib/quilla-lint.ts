@@ -1,9 +1,9 @@
-import { linter, type Diagnostic } from "@codemirror/lint"
-import { useCodeStore } from "@/stores/code"
+import { linter, type Diagnostic } from "@codemirror/lint";
+import { useCodeStore } from "@/stores/code";
 
 export const quillaLinter = linter((view) => {
-  const parsed = useCodeStore.getState().parsed
-  const diagnostics: Diagnostic[] = []
+  const parsed = useCodeStore.getState().parsed;
+  const diagnostics: Diagnostic[] = [];
   for (const item of parsed) {
     if ("error" in item) {
       diagnostics.push({
@@ -11,8 +11,8 @@ export const quillaLinter = linter((view) => {
         to: Math.min(item.span.end, view.state.doc.length),
         severity: "error",
         message: item.error,
-      })
+      });
     }
   }
-  return diagnostics
-})
+  return diagnostics;
+});

@@ -1,15 +1,15 @@
-import { IconSun, IconMoon } from "@tabler/icons-react"
-import { buttonVariants } from "@/components/ui/button"
+import { IconSun, IconMoon } from "@tabler/icons-react";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useThemeStore } from "@/stores/theme"
+} from "@/components/ui/dropdown-menu";
+import { useThemeStore } from "@/stores/theme";
 
 export function ModeToggle() {
-  const setTheme = useThemeStore((s) => s.setTheme)
+  const setTheme = useThemeStore((s) => s.setTheme);
 
   return (
     <DropdownMenu>
@@ -32,5 +32,5 @@ export function ModeToggle() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }
